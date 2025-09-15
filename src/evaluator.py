@@ -61,6 +61,7 @@ class CaregiverFeedbackEvaluator:
         # Confrontational words and phrases
         self.confrontation_patterns = [
             r'\bno,?\s*that\'s wrong\b',
+            r'\bno,?\s*that is wrong\b',
             r'\byou\'re wrong\b',
             r'\bthat\'s incorrect\b',
             r'\bno,?\s*you can\'t\b',
