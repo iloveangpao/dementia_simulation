@@ -1,0 +1,13 @@
+# Core dependencies for RAG pipeline
+transformers>=4.30.0
+torch>=2.0.0
+tokenizers>=0.13.0
+
+# Additional dependencies that might be useful
+numpy>=1.21.0
+scikit-learn>=1.3.0
+
+# For potential future enhancements
+# sentence-transformers>=2.2.0  # For semantic similarity
+# faiss-cpu>=1.7.0  # For document retrieval
+# langchain>=0.1.0  # For advanced RAG patterns
