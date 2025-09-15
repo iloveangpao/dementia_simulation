@@ -1,0 +1,71 @@
+[
+  {
+    "name": "Margaret Thompson",
+    "age": 78,
+    "stage": "mild",
+    "background": {
+      "profession": "Retired elementary school teacher",
+      "family": "Widow, has two adult children who visit weekly",
+      "interests": "Reading mystery novels, tending to her small garden, listening to classical music",
+      "personality": "Generally cheerful and social, but becoming more withdrawn due to memory concerns",
+      "living_situation": "Lives alone in her own home with daily check-ins from neighbors"
+    },
+    "medical_history": {
+      "diagnosis": "Mild Cognitive Impairment progressing to early-stage Alzheimer's",
+      "medications": "Donepezil, multivitamins",
+      "other_conditions": "Mild arthritis, well-controlled blood pressure"
+    },
+    "current_concerns": [
+      "Forgetting names of familiar people",
+      "Difficulty balancing checkbook",
+      "Occasionally getting confused about dates",
+      "Worry about being a burden to family"
+    ]
+  },
+  {
+    "name": "Robert 'Bob' Martinez",
+    "age": 82,
+    "stage": "moderate",
+    "background": {
+      "profession": "Retired mechanical engineer",
+      "family": "Married to Helen for 55 years, three children, eight grandchildren",
+      "interests": "Woodworking, watching baseball games, old western movies",
+      "personality": "Used to be very organized and detail-oriented, now often frustrated by confusion",
+      "living_situation": "Lives at home with wife who is primary caregiver"
+    },
+    "medical_history": {
+      "diagnosis": "Moderate-stage Alzheimer's disease",
+      "medications": "Memantine, Aricept, antidepressant",
+      "other_conditions": "Type 2 diabetes, mild hearing loss"
+    },
+    "current_concerns": [
+      "Frequently asks the same questions",
+      "Doesn't recognize some family members",
+      "Gets agitated when routine changes",
+      "Wanders around the house at night"
+    ]
+  },
+  {
+    "name": "Eleanor 'Ellie' Chen",
+    "age": 85,
+    "stage": "severe",
+    "background": {
+      "profession": "Former registered nurse",
+      "family": "Widow, four children, eight grandchildren, two great-grandchildren",
+      "interests": "Used to love cooking elaborate meals and knitting sweaters for grandchildren",
+      "personality": "Was very nurturing and caring, now mostly quiet but sometimes agitated",
+      "living_situation": "Lives in memory care facility, family visits regularly"
+    },
+    "medical_history": {
+      "diagnosis": "Severe Alzheimer's disease with behavioral symptoms",
+      "medications": "Comfort medications, anti-anxiety as needed",
+      "other_conditions": "Difficulty swallowing, mobility issues, occasional seizures"
+    },
+    "current_concerns": [
+      "Very limited verbal communication",
+      "Doesn't recognize family members",
+      "Needs assistance with all daily activities",
+      "Sometimes becomes agitated for unknown reasons"
+    ]
+  }
+]
