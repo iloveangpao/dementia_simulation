@@ -1,0 +1,16 @@
+[
+  {
+    "id": "sample_patient_data.csv_chunk_0",
+    "text": "Patient_ID: P001 P002 P003 P004 P005 Diagnosis: Mild Cognitive Impairment Early-stage Alzheimer's Moderate Dementia Vascular Dementia Frontotemporal Dementia Symptoms: Memory lapses, difficulty with complex tasks Short-term memory loss, confusion with familiar places Severe memory problems, behavioral changes, difficulty recognizing family Problems with planning and organizing, mood changes Personality changes, language difficulties, impaired judgment Care_Notes: Patient benefits from routine and familiar environments Requires assistance with medication management Needs constant supervision and assistance with daily activities Responds well to structured activities and social interaction Benefits from calm environment and clear, simple communication",
+    "source_file": "sample_patient_data.csv",
+    "file_type": "csv",
+    "chunk_index": 0
+  },
+  {
+    "id": "dementia_care_guide.txt_chunk_0",
+    "text": "Dementia Care Guidelines Introduction Dementia is a syndrome characterized by deterioration in memory, thinking, behavior and the ability to perform everyday activities. While dementia mainly affects older people, it is not a normal part of ageing. Types of Dementia Alzheimer's disease is the most common form of dementia and may contribute to 6070 of cases. Other major forms include vascular dementia, dementia with Lewy bodies, and frontotemporal dementia. Symptoms and Stages Early stage symptoms include forgetfulness, losing track of time, and becoming lost in familiar places. Middle stage symptoms involve forgetting recent events and people's names, becoming confused at home, and having difficulty with communication. Late stage symptoms include becoming unaware of time and place, having difficulty recognizing relatives and friends, and needing assisted self-care. Care Strategies Effective care strategies include maintaining routine, providing clear and simple instructions, ensuring a safe environment, and promoting social interaction. Family involvement and professional support are crucial for quality care. Communication Tips When communicating with dementia patients, speak slowly and clearly, use simple words, maintain eye contact, and be patient. Avoid arguing or correcting, and instead redirect attention to positive activities. Environmental Considerations The environment should be safe, familiar, and calming. Remove potential hazards, ensure good lighting, minimize noise, and provide clear pathways. Personal items and photos can help maintain connection to identity.",
+    "source_file": "dementia_care_guide.txt",
+    "file_type": "text",
+    "chunk_index": 0
+  }
+]

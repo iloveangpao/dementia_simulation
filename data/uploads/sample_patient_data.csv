@@ -1,0 +1,6 @@
+Patient_ID,Age,Diagnosis,Symptoms,Care_Notes
+P001,75,Mild Cognitive Impairment,"Memory lapses, difficulty with complex tasks",Patient benefits from routine and familiar environments
+P002,68,Early-stage Alzheimer's,"Short-term memory loss, confusion with familiar places",Requires assistance with medication management
+P003,82,Moderate Dementia,"Severe memory problems, behavioral changes, difficulty recognizing family",Needs constant supervision and assistance with daily activities
+P004,71,Vascular Dementia,"Problems with planning and organizing, mood changes",Responds well to structured activities and social interaction
+P005,79,Frontotemporal Dementia,"Personality changes, language difficulties, impaired judgment","Benefits from calm environment and clear, simple communication"
