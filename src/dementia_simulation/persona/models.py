@@ -8,7 +8,7 @@ to simulate realistic interactions for caregiver training.
 from enum import Enum
 from typing import Dict, List, Optional
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 import random
 
 
@@ -254,7 +254,7 @@ Behavioral Guidelines for {self.stage.value} dementia:
 - May exhibit repetitive behaviors or agitation"""
 
         if self.background:
-            prompt += f"\n\nPersonal Background:\n"
+            prompt += "\n\nPersonal Background:\n"
             for key, value in self.background.items():
                 prompt += f"- {key}: {value}\n"
         
