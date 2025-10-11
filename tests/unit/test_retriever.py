@@ -1,7 +1,7 @@
 """Unit tests for FAISS retriever."""
 
-import os
 import pytest
+import os
 
 from dementia_simulation.retriever.faiss_retriever import (
     FAISSRetriever, create_dementia_knowledge_base, initialize_retriever_with_knowledge_base

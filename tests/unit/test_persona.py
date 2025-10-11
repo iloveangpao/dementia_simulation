@@ -1,5 +1,6 @@
 """Unit tests for persona models."""
 
+
 from dementia_simulation.persona.models import (
     DementiaPersona, DementiaStage, MoodState, 
     MemoryProfile, PersonalityTraits, create_sample_personas
