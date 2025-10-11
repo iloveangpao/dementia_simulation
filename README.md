@@ -79,6 +79,19 @@ poetry run dementia-sim setup
 python -m dementia_simulation.cli.main setup
 ```
 
+5. **Build the FAISS index (optional):**
+```bash
+# Build index from knowledge base (auto-detect source)
+python build_index.py
+
+# Build from specific source
+python build_index.py --source knowledge_base
+python build_index.py --source default
+
+# Specify custom directories
+python build_index.py --output-dir embeddings --kb-dir data/knowledge_base
+```
+
 ### Usage
 
 #### 🖥️ Command Line Interface
@@ -227,6 +240,74 @@ The system evaluates caregiver responses across multiple dimensions:
 - **Communication Clarity**: Using clear, simple language
 - **Non-confrontational**: Avoiding arguments and corrections
 
+## 🧠 Using the RAG Pipeline
+
+The RAG (Retrieval-Augmented Generation) pipeline can be used programmatically in your own code:
+
+### Basic Usage
+
+```python
+import asyncio
+from dementia_simulation.rag import generate_response
+from dementia_simulation.persona.models import create_sample_personas
+
+async def main():
+    # Create a persona
+    personas = create_sample_personas()
+    persona = personas[0]  # Mild dementia - Margaret
+    
+    # Generate a response
+    response = await generate_response(
+        user_input="How are you feeling today?",
+        persona=persona
+    )
+    
+    print(f"Patient: {response.response_text}")
+    print(f"Mood: {response.persona_mood}")
+    print(f"Confidence: {response.confidence_score:.2f}")
+
+asyncio.run(main())
+```
+
+### Advanced Usage with Custom Pipeline
+
+```python
+from dementia_simulation.rag import DementiaRAGPipeline
+from dementia_simulation.retriever.faiss_retriever import FAISSRetriever
+
+# Initialize with custom settings
+retriever = FAISSRetriever()
+pipeline = DementiaRAGPipeline(
+    retriever=retriever,
+    model_name="microsoft/DialoGPT-medium",
+    use_openai=False,
+    temperature=0.7
+)
+
+# Generate response with conversation history
+conversation_history = [
+    {"speaker": "caregiver", "message": "Good morning!"},
+    {"speaker": "patient", "message": "Good morning dear."}
+]
+
+response = await pipeline.generate_response(
+    user_input="Would you like some breakfast?",
+    persona=persona,
+    conversation_history=conversation_history
+)
+```
+
+### Response Object
+
+The `generate_response` function returns a `RAGResponse` object with:
+
+- `response_text`: The generated patient reply
+- `retrieved_documents`: List of relevant knowledge base documents
+- `confidence_score`: Confidence in the response (0.0-1.0)
+- `persona_mood`: Current mood state of the persona
+- `processing_time`: Time taken to generate response (seconds)
+- `model_used`: Name of the language model used
+
 ## 🛠️ Development
 
 ### Running Tests
@@ -260,12 +341,48 @@ ruff check --fix src/ tests/
 poetry run mypy src/
 ```
 
+### Building FAISS Index
+
+The `build_index.py` utility creates embeddings from your knowledge base:
+
+```bash
+# Auto-detect source (tries processed chunks, then knowledge base, then default)
+python build_index.py
+
+# Build from knowledge base markdown files
+python build_index.py --source knowledge_base --kb-dir data/knowledge_base
+
+# Build from preprocessed chunks
+python build_index.py --source processed --processed-dir data/processed
+
+# Use built-in default knowledge base
+python build_index.py --source default
+
+# Specify output directory
+python build_index.py --output-dir embeddings
+
+# Use different embedding model
+python build_index.py --model all-mpnet-base-v2
+```
+
+**Options:**
+- `--source`: Document source (`auto`, `processed`, `knowledge_base`, `default`)
+- `--output-dir`: Directory to save index (default: `embeddings`)
+- `--processed-dir`: Location of processed chunks (default: `data/processed`)
+- `--kb-dir`: Location of knowledge base files (default: `data/knowledge_base`)
+- `--model`: Sentence-transformer model (default: `all-MiniLM-L6-v2`)
+
+The utility creates:
+- `embeddings/faiss_index.index`: FAISS vector index
+- `embeddings/documents.json`: Document metadata
+
 ### Adding New Personas
 
 1. Create persona in `data/personas/`
 2. Update `persona/models.py` if needed
 3. Add to knowledge base in `data/knowledge_base/`
-4. Test with unit tests
+4. Rebuild the FAISS index with `python build_index.py`
+5. Test with unit tests
 
 ## 🔧 Configuration
 

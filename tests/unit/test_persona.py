@@ -1,6 +1,5 @@
 """Unit tests for persona models."""
 
-
 from dementia_simulation.persona.models import (
     DementiaPersona,
     DementiaStage,
