@@ -24,6 +24,7 @@ class FAISSRetriever:
         model_name: str = "all-MiniLM-L6-v2",
         index_path: Optional[str] = None,
         documents_path: Optional[str] = None,
+        device: Optional[str] = None,
     ):
         """
         Initialize the FAISS retriever.
@@ -32,9 +33,17 @@ class FAISSRetriever:
             model_name: Name of the sentence transformer model
             index_path: Path to save/load FAISS index
             documents_path: Path to save/load document metadata
+            device: Device to use ('cpu', 'cuda', or None for auto-detect)
         """
         self.model_name = model_name
-        self.encoder = SentenceTransformer(model_name)
+        
+        # Determine device - use CPU by default, or auto-detect if available
+        if device is None:
+            import torch
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = device
+        
+        self.encoder = SentenceTransformer(model_name, device=self.device)
         self.dimension = self.encoder.get_sentence_embedding_dimension()
 
         # FAISS index
@@ -49,7 +58,7 @@ class FAISSRetriever:
         os.makedirs(os.path.dirname(self.index_path), exist_ok=True)
         os.makedirs(os.path.dirname(self.documents_path), exist_ok=True)
 
-        logger.info(f"Initialized FAISS retriever with model: {model_name}")
+        logger.info(f"Initialized FAISS retriever with model: {model_name} on device: {self.device}")
 
     def create_index(self, index_type: str = "flat") -> faiss.Index:
         """
