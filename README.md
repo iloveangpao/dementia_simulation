@@ -20,14 +20,16 @@ This application provides realistic simulations of conversations with dementia p
 
 ```
 dementia_simulation/
-├── src/dementia_simulation/    # Core package
-│   ├── persona/               # Dementia personas and stages
-│   ├── retriever/             # FAISS-based document retrieval
-│   ├── rag/                   # RAG pipeline with LLaMA2/Mistral
-│   ├── api/                   # FastAPI server
-│   ├── cli/                   # Command-line interface
-│   ├── evaluator/             # Empathy evaluation system
-│   └── utils/                 # Utilities and logging
+├── src/
+│   ├── chat.py                # Chat orchestration system
+│   └── dementia_simulation/   # Core package
+│       ├── persona/           # Dementia personas and stages
+│       ├── retriever/         # FAISS-based document retrieval
+│       ├── rag/               # RAG pipeline with LLaMA2/Mistral
+│       ├── api/               # FastAPI server
+│       ├── cli/               # Command-line interface
+│       ├── evaluator/         # Empathy evaluation system
+│       └── utils/             # Utilities and logging
 ├── data/                      # Data storage
 │   ├── knowledge_base/        # Dementia care information
 │   ├── personas/              # Persona definitions
@@ -113,6 +115,56 @@ poetry run dementia-sim server
 # Documentation at http://localhost:8000/docs
 ```
 
+## 💬 Chat Orchestration System
+
+The `src/chat.py` module implements a sophisticated chat loop that orchestrates conversations with dementia patients. Key features include:
+
+### Core Components
+
+- **PersonaState**: Tracks the patient's cognitive and emotional state
+  - Short-term and long-term memory storage
+  - Confusion level progression
+  - Mood state and intensity
+  - Behavioral patterns (repetition, time orientation)
+  - Topic tracking
+
+- **ChatMessage**: Represents conversation messages
+  - Timestamp tracking
+  - Speaker identification (user/patient)
+  - Persona state snapshots
+
+- **DementiaSimulationRules**: Implements dementia-specific behaviors
+  - **Forgetting Rules**: Simulates memory degradation and forgetting patterns
+  - **Mood Rules**: Dynamic mood changes based on conversation context
+  - Confusion level progression
+
+- **DementiaSimulationChat**: Main orchestration class
+  - `chat_loop()`: Processes user input and generates patient responses
+  - Returns both response and current persona state
+  - Maintains complete conversation history
+
+### Usage Example
+
+```python
+from chat import DementiaSimulationChat
+
+# Initialize chat system
+chat = DementiaSimulationChat()
+
+# Process user input
+response, persona_state = chat.chat_loop("Hello, how are you today?")
+
+print(f"Patient: {response}")
+print(f"Mood: {persona_state['current_mood']}")
+print(f"Confusion: {persona_state['confusion_level']}")
+
+# Get conversation history
+history = chat.get_conversation_history()
+
+# Reset for new conversation
+chat.reset_conversation()
+```
+
 ## 🎭 Dementia Personas
 
 ### Mild Dementia - Margaret (78 years old)
@@ -152,8 +204,12 @@ poetry run pytest
 # Run with coverage
 poetry run pytest --cov=src --cov-report=html
 
-# Run specific test file
+# Run specific test files
 poetry run pytest tests/unit/test_persona.py
+poetry run pytest tests/test_chat.py
+
+# Run chat orchestration tests specifically
+python -m unittest tests.test_chat -v
 ```
 
 ### Code Quality
@@ -165,7 +221,10 @@ poetry run black src/ tests/
 # Sort imports
 poetry run isort src/ tests/
 
-# Lint code
+# Lint code with ruff (recommended)
+ruff check src/ tests/
+
+# Or use flake8
 poetry run flake8 src/ tests/
 
 # Type checking
