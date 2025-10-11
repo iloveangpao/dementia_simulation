@@ -1,6 +1,7 @@
 """Unit tests for FAISS retriever."""
 
 import os
+import pytest
 
 import pytest
 
