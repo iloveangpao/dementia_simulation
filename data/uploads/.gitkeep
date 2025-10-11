@@ -1,0 +1,2 @@
+# This directory is for uploaded PDF and CSV files
+# Files placed here will be processed by notebooks/preprocess_docs.ipynb

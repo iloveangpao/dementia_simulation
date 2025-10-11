@@ -31,6 +31,9 @@ dependencies = [
   "loguru>=0.7.2",
   "python-dotenv>=1.0.0",
   "httpx>=0.25.2",
+  "PyPDF2>=3.0.0",
+  "nltk>=3.8.1",
+  "tqdm>=4.66.0",
 ]
 
 [project.scripts]
@@ -55,6 +58,7 @@ line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "C90", "B"]
+ignore = ["B008"]  # Allow function calls in default arguments (FastAPI Depends pattern)
 
 [tool.ruff.format]
 quote-style = "double"

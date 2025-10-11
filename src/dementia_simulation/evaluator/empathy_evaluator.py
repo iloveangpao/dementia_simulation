@@ -45,7 +45,9 @@ class EmpathyEvaluator:
                 "weight": 0.8,
             },
             {
-                "pattern": r"\b(that must be|how (difficult|hard|frustrating)|i imagine)\b",
+                "pattern": (
+                    r"\b(that must be|how (difficult|hard|frustrating)" r"|i imagine)\b"
+                ),
                 "category": "emotional_support",
                 "weight": 0.7,
             },
@@ -136,7 +138,9 @@ class EmpathyEvaluator:
             "annoyed": -0.7,
         }
 
-    def evaluate_response_patterns(self, response: str) -> EmpathyMetrics:
+    def evaluate_response_patterns(  # noqa: C901
+        self, response: str
+    ) -> EmpathyMetrics:
         """
         Evaluate a single response for empathy patterns.
 
@@ -215,7 +219,7 @@ class EmpathyEvaluator:
 
         return metrics
 
-    def analyze_conversation_flow(
+    def analyze_conversation_flow(  # noqa: C901
         self, conversation_history: List[Dict[str, Any]]
     ) -> Dict[str, float]:
         """
@@ -295,7 +299,7 @@ class EmpathyEvaluator:
             "engagement": engagement,
         }
 
-    def generate_feedback(
+    def generate_feedback(  # noqa: C901
         self, metrics: EmpathyMetrics, conversation_metrics: Dict[str, float]
     ) -> Tuple[List[str], List[str], List[str]]:
         """
@@ -324,7 +328,8 @@ class EmpathyEvaluator:
                 "Focus on validating the patient's feelings rather than correcting them"
             )
             feedback.append(
-                "Try phrases like 'I understand how you feel' or 'That must be difficult'"
+                "Try phrases like 'I understand how you feel' or "
+                "'That must be difficult'"
             )
 
         # Emotional support feedback
@@ -350,7 +355,8 @@ class EmpathyEvaluator:
                 "Practice more patience with repeated questions and confusion"
             )
             feedback.append(
-                "Remember that repetition is part of dementia - each time feels new to them"
+                "Remember that repetition is part of dementia - "
+                "each time feels new to them"
             )
 
         # Communication clarity feedback

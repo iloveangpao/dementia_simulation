@@ -79,12 +79,23 @@ poetry run dementia-sim setup
 python -m dementia_simulation.cli.main setup
 ```
 
-5. **Build the FAISS index (optional):**
+5. **Preprocess documents (optional):**
 ```bash
-# Build index from knowledge base (auto-detect source)
+# Add PDF or CSV files to data/uploads/
+# Then run preprocessing to chunk documents
+python run_preprocessing.py
+
+# Or use the Jupyter notebook
+jupyter notebook notebooks/preprocess_docs.ipynb
+```
+
+6. **Build the FAISS index:**
+```bash
+# Build index from preprocessed documents (auto-detect source)
 python build_index.py
 
 # Build from specific source
+python build_index.py --source processed    # Use preprocessed documents
 python build_index.py --source knowledge_base
 python build_index.py --source default
 
@@ -96,18 +107,27 @@ python build_index.py --output-dir embeddings --kb-dir data/knowledge_base
 
 #### 🖥️ Command Line Interface
 
-Start an interactive conversation:
+**Simple REPL Interface** (for basic training):
 ```bash
+# Start the simple REPL loop
+python frontend/cli/main.py
+
+# Features:
+# - Interactive caregiver-patient conversation
+# - Change personas with /persona <name> <stage>
+# - Exit with /quit
+# - All conversations logged in logs/ directory
+```
+
+**Advanced CLI** (with full RAG pipeline):
+```bash
+# Start an interactive conversation
 poetry run dementia-sim chat
-```
 
-List available personas:
-```bash
+# List available personas
 poetry run dementia-sim personas
-```
 
-Analyze a saved conversation:
-```bash
+# Analyze a saved conversation
 poetry run dementia-sim analyze data/sessions/conversation_margaret_20240101_120000.json
 ```
 
@@ -294,14 +314,28 @@ The system includes pre-configured sample personas loaded from `data/personas/sa
 
 ## 📊 Empathy Evaluation
 
-The system evaluates caregiver responses across multiple dimensions:
+The system includes two complementary evaluators for assessing caregiver communication:
 
+### CaregiverFeedbackEvaluator (Basic)
+Rule-based pattern matching for quick assessment:
+- **Reassurance Detection**: Identifies supportive phrases ("okay", "I understand", "take your time")
+- **Confrontation Detection**: Identifies problematic language ("no, that's wrong", "you're confused")
+- **JSON Score Output**: Returns structured scores, detected patterns, and recommendations
+- **Optional LLM Support**: Framework for secondary analysis
+- **Use Case**: Real-time feedback during interactions
+
+See [Feedback Evaluator Documentation](docs/feedback_evaluator.md) for details.
+
+### EmpathyEvaluator (Advanced)
+Comprehensive multi-dimensional assessment:
 - **Validation**: Acknowledging feelings without correction
 - **Emotional Support**: Providing comfort and reassurance  
 - **Respect & Dignity**: Maintaining the person's dignity
 - **Patience**: Handling repetition and confusion gracefully
 - **Communication Clarity**: Using clear, simple language
 - **Non-confrontational**: Avoiding arguments and corrections
+- **Conversation Flow**: Consistency, adaptability, and engagement metrics
+- **Use Case**: Post-conversation analysis and training assessment
 
 ## 🧠 Using the RAG Pipeline
 
@@ -404,6 +438,37 @@ ruff check --fix src/ tests/
 poetry run mypy src/
 ```
 
+### Preprocessing Documents
+
+To add custom documents (PDFs, CSVs) to the knowledge base:
+
+1. **Place files in the upload directory:**
+```bash
+# Add your PDF or CSV files
+cp your_document.pdf data/uploads/
+cp your_data.csv data/uploads/
+```
+
+2. **Run preprocessing:**
+```bash
+# Using the Python script
+python run_preprocessing.py
+
+# Or using the Jupyter notebook
+jupyter notebook notebooks/preprocess_docs.ipynb
+```
+
+The preprocessing pipeline:
+- Extracts text from PDFs and CSVs
+- Cleans and normalizes the text
+- Chunks text into overlapping passages (512 tokens with 50 token overlap)
+- Saves processed chunks to `data/processed/`
+
+**Output files:**
+- `data/processed/text_chunks.json`: Processed chunks with metadata
+- `data/processed/text_chunks.csv`: CSV version for easy viewing
+- `data/processed/document_metadata.json`: Document-level metadata
+
 ### Building FAISS Index
 
 The `build_index.py` utility creates embeddings from your knowledge base:
@@ -480,9 +545,19 @@ The system supports multiple language models:
 
 ## 📚 API Reference
 
+The FastAPI server provides comprehensive REST endpoints for chat and evaluation functionality. Full interactive documentation is available at `/docs` when the server is running.
+
 ### Chat Endpoint
 
+**POST** `/chat` - Interact with a dementia persona
+
+Accepts flexible schemas for compatibility:
+- `message` or `text` - The user's message (required)
+- `persona_id` - Specific persona to chat with (optional)
+- `session_id` - Session identifier for tracking (optional)
+
 ```bash
+# Using 'message' field
 curl -X POST "http://localhost:8000/chat" \
   -H "Content-Type: application/json" \
   -d '{
@@ -490,18 +565,90 @@ curl -X POST "http://localhost:8000/chat" \
     "persona_id": "persona_1",
     "session_id": "my_session"
   }'
+
+# Using 'text' field (alternative)
+curl -X POST "http://localhost:8000/chat" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "Hello, how are you?",
+    "session_id": "my_session"
+  }'
+```
+
+**Response:**
+```json
+{
+  "response": "I'm feeling a bit confused...",
+  "reply": "I'm feeling a bit confused...",
+  "persona_mood": "confused",
+  "mood": "confused",
+  "confidence_score": 0.85,
+  "processing_time": 1.2,
+  "model_used": "microsoft/DialoGPT-medium",
+  "retrieved_docs": 3,
+  "session_id": "my_session"
+}
 ```
 
 ### Evaluation Endpoint
 
+**POST** `/evaluate` - Evaluate caregiver empathy and communication
+
+Accepts flexible input formats:
+- `transcript` - Simple text transcript to evaluate (recommended for quick evaluation)
+- `conversation_history` + `caregiver_responses` - Detailed conversation data
+
 ```bash
+# Using transcript (simple)
 curl -X POST "http://localhost:8000/evaluate" \
   -H "Content-Type: application/json" \
   -d '{
-    "conversation_history": [...],
+    "transcript": "I understand how you feel. Let me help you with that."
+  }'
+
+# Using detailed conversation history
+curl -X POST "http://localhost:8000/evaluate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "conversation_history": [
+      {"speaker": "caregiver", "message": "How are you feeling?"},
+      {"speaker": "patient", "message": "Confused...", "mood": "confused"}
+    ],
     "caregiver_responses": ["How are you feeling?", "I understand..."]
   }'
 ```
+
+**Response:**
+```json
+{
+  "overall_empathy_score": 0.75,
+  "overall_score": 0.75,
+  "detailed_scores": {
+    "validation": 0.8,
+    "emotional_support": 0.7,
+    "patience": 0.85,
+    "communication_clarity": 0.75,
+    "non_confrontational": 0.9
+  },
+  "flags": {
+    "low_validation": false,
+    "low_patience": false,
+    "needs_improvement": false
+  },
+  "feedback": ["Good validation of feelings"],
+  "strengths": ["Excellent patience"],
+  "improvements": ["Could improve emotional support"]
+}
+```
+
+### Other Endpoints
+
+- **GET** `/health` - Health check
+- **GET** `/personas` - List all available personas
+- **GET** `/personas/{persona_id}` - Get specific persona details
+- **GET** `/sessions/{session_id}` - Get session conversation history
+- **DELETE** `/sessions/{session_id}` - Delete a session
+- **GET** `/stats` - Get system statistics
 
 ## 🤝 Contributing
 
