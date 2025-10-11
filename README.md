@@ -79,12 +79,23 @@ poetry run dementia-sim setup
 python -m dementia_simulation.cli.main setup
 ```
 
-5. **Build the FAISS index (optional):**
+5. **Preprocess documents (optional):**
 ```bash
-# Build index from knowledge base (auto-detect source)
+# Add PDF or CSV files to data/uploads/
+# Then run preprocessing to chunk documents
+python run_preprocessing.py
+
+# Or use the Jupyter notebook
+jupyter notebook notebooks/preprocess_docs.ipynb
+```
+
+6. **Build the FAISS index:**
+```bash
+# Build index from preprocessed documents (auto-detect source)
 python build_index.py
 
 # Build from specific source
+python build_index.py --source processed    # Use preprocessed documents
 python build_index.py --source knowledge_base
 python build_index.py --source default
 
@@ -411,6 +422,37 @@ ruff check --fix src/ tests/
 # Type checking
 poetry run mypy src/
 ```
+
+### Preprocessing Documents
+
+To add custom documents (PDFs, CSVs) to the knowledge base:
+
+1. **Place files in the upload directory:**
+```bash
+# Add your PDF or CSV files
+cp your_document.pdf data/uploads/
+cp your_data.csv data/uploads/
+```
+
+2. **Run preprocessing:**
+```bash
+# Using the Python script
+python run_preprocessing.py
+
+# Or using the Jupyter notebook
+jupyter notebook notebooks/preprocess_docs.ipynb
+```
+
+The preprocessing pipeline:
+- Extracts text from PDFs and CSVs
+- Cleans and normalizes the text
+- Chunks text into overlapping passages (512 tokens with 50 token overlap)
+- Saves processed chunks to `data/processed/`
+
+**Output files:**
+- `data/processed/text_chunks.json`: Processed chunks with metadata
+- `data/processed/text_chunks.csv`: CSV version for easy viewing
+- `data/processed/document_metadata.json`: Document-level metadata
 
 ### Building FAISS Index
 

@@ -11,11 +11,12 @@ The script can work with:
 - Markdown files from data/knowledge_base/
 """
 
-import os
-import json
 import argparse
+import json
+import os
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 from loguru import logger
 
 from src.dementia_simulation.retriever.faiss_retriever import (
