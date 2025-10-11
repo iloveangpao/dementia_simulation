@@ -3,7 +3,7 @@
 import pytest
 
 from dementia_simulation.evaluator.empathy_evaluator import (
-    EmpathyMetrics,
+    EmpathyMetrics
 )
 
 
