@@ -6,7 +6,7 @@ for simulating patient responses in dementia scenarios.
 """
 
 import logging
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Any
 import warnings
 warnings.filterwarnings("ignore")
 

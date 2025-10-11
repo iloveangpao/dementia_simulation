@@ -5,7 +5,7 @@ This module combines document retrieval with language model generation
 to create contextually informed responses for dementia patient simulation.
 """
 
-from typing import List, Dict, Optional, Tuple, Any
+from typing import List, Dict, Optional, Any
 from dataclasses import dataclass
 import asyncio
 from loguru import logger
@@ -210,8 +210,18 @@ class DementiaRAGPipeline:
         if conversation_history and len(conversation_history) > 0:
             prompt += "\n\nRecent conversation:\n"
             for entry in conversation_history[-3:]:  # Last 3 exchanges
-                speaker = "Caregiver" if entry['speaker'] == 'caregiver' else "You"
-                prompt += f"{speaker}: {entry['message']}\n"
+                # Support both old format (user/assistant) and new format (speaker/message)
+                if 'speaker' in entry and 'message' in entry:
+                    speaker = "Caregiver" if entry['speaker'] == 'caregiver' else "You"
+                    message = entry['message']
+                elif 'user' in entry and 'assistant' in entry:
+                    # Old format - show both user and assistant messages
+                    prompt += f"Caregiver: {entry['user']}\n"
+                    prompt += f"You: {entry['assistant']}\n"
+                    continue
+                else:
+                    continue
+                prompt += f"{speaker}: {message}\n"
         
         # Add current interaction
         prompt += f"\n\nCaregiver: {user_input}\nYou: "
@@ -410,6 +420,83 @@ class DementiaRAGPipeline:
             "model_loaded": self.generator is not None or self.use_openai
         }
         return stats
+
+
+# Convenience function matching the issue requirements
+def generate_response(
+    user_input: str,
+    persona: Any,  # Can be Dict or DementiaPersona
+    history: Optional[List[Dict]] = None
+) -> str:
+    """
+    Generate a persona-aware response using the RAG pipeline.
+    
+    This is a convenience function that provides a simpler interface
+    to the DementiaRAGPipeline for backward compatibility and ease of use.
+    
+    Args:
+        user_input: The user's input message
+        persona: Patient persona information (Dict or DementiaPersona object)
+        history: List of previous conversation exchanges
+        
+    Returns:
+        Generated patient response as a string
+    
+    Example:
+        >>> persona = {"name": "Mary", "age": "75", "condition": "mild dementia"}
+        >>> history = [{"user": "Hello", "assistant": "Hi there"}]
+        >>> response = generate_response("How are you?", persona, history)
+    """
+    # Create a default pipeline instance
+    pipeline = DementiaRAGPipeline()
+    
+    # Convert dict persona to DementiaPersona if needed
+    if isinstance(persona, dict):
+        # Create a basic DementiaPersona from dict
+        from ..persona.models import DementiaPersona, DementiaStage
+        
+        # Map condition to stage
+        condition = persona.get('condition', 'mild dementia').lower()
+        if 'severe' in condition:
+            stage = DementiaStage.SEVERE
+        elif 'moderate' in condition:
+            stage = DementiaStage.MODERATE
+        else:
+            stage = DementiaStage.MILD
+        
+        # Parse age
+        age = persona.get('age', 75)
+        if isinstance(age, str) and age.isdigit():
+            age = int(age)
+        elif not isinstance(age, int):
+            age = 75
+        
+        # Create background dict if personality string is provided
+        background = persona.get('background', {})
+        if 'personality' in persona and isinstance(persona['personality'], str):
+            background = {**background, 'personality': persona['personality']}
+        
+        persona_obj = DementiaPersona(
+            name=persona.get('name', 'Patient'),
+            age=age,
+            stage=stage,
+            background=background
+        )
+    else:
+        persona_obj = persona
+    
+    # Run the async generate_response synchronously
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    rag_response = loop.run_until_complete(
+        pipeline.generate_response(user_input, persona_obj, history)
+    )
+    
+    return rag_response.response_text
 
 
 if __name__ == "__main__":
