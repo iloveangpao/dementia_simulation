@@ -39,11 +39,35 @@ class FAISSRetriever:
         
         # Determine device - use CPU by default, or auto-detect if available
         if device is None:
-            import torch
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+            try:
+                import torch
+                # Check if CUDA is available and actually works
+                if torch.cuda.is_available():
+                    try:
+                        # Try to create a small tensor on CUDA to verify it works
+                        _ = torch.zeros(1).cuda()
+                        device = "cuda"
+                    except Exception:
+                        # CUDA is reported as available but doesn't work, use CPU
+                        device = "cpu"
+                else:
+                    device = "cpu"
+            except ImportError:
+                device = "cpu"
         self.device = device
         
-        self.encoder = SentenceTransformer(model_name, device=self.device)
+        # Initialize model with explicit device, fallback to CPU on any error
+        try:
+            self.encoder = SentenceTransformer(model_name, device=self.device)
+        except Exception:
+            # If initialization fails with specified device, try CPU
+            if self.device != "cpu":
+                logger.warning(f"Failed to initialize model on {self.device}, falling back to CPU")
+                self.device = "cpu"
+                self.encoder = SentenceTransformer(model_name, device="cpu")
+            else:
+                raise
+        
         self.dimension = self.encoder.get_sentence_embedding_dimension()
 
         # FAISS index
