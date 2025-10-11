@@ -77,6 +77,25 @@ poetry run dementia-sim setup
 python -m dementia_simulation.cli.main setup
 ```
 
+5. **Build the FAISS index (optional but recommended):**
+```bash
+# Build index from knowledge base and processed documents
+python build_index.py
+
+# Custom options
+python build_index.py \
+  --processed-dir data/processed \
+  --knowledge-base-dir data/knowledge_base \
+  --embeddings-dir embeddings \
+  --model-name all-MiniLM-L6-v2 \
+  --index-type flat
+
+# See all options
+python build_index.py --help
+```
+
+> **Note**: The retriever will automatically use the built-in knowledge base if no prebuilt index is found. Building the index improves retrieval quality and speed if you have custom documents.
+
 ### Usage
 
 #### 🖥️ Command Line Interface

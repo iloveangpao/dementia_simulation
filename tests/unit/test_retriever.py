@@ -1,7 +1,6 @@
 """Unit tests for FAISS retriever."""
 
 import pytest
-import tempfile
 import os
 
 from dementia_simulation.retriever.faiss_retriever import (
