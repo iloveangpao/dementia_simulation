@@ -1,8 +1,13 @@
 """Unit tests for PatientPersona class."""
 
+import sys
+from pathlib import Path
 from datetime import datetime, timedelta
 
-from src.persona import (
+# Add src to path to import persona module
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+
+from persona import (
     PatientPersona,
     DementiaStage,
     MoodState
