@@ -15,19 +15,28 @@ jobs:
         # Default behavior checks out the exact commit for the event. For PR head use:
         # with: { ref: ${{ github.event.pull_request.head.sha }} }
 
-      - uses: snok/install-poetry@v1
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
         with:
           version: 1.8.3
           virtualenvs-create: true
           virtualenvs-in-project: true
+      # Action explicitly “adds executables to the runner system path”. :contentReference[oaicite:1]{index=1}
 
-      - uses: actions/setup-python@v5
+      # 2) Now setup Python and enable Poetry cache
+      - name: Setup Python (3.10) with Poetry cache
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          # avoid 'cache: poetry' until poetry is on PATH, or install Poetry first as you did
+          cache: poetry
 
-      # No 'poetry env use' needed if you're fine with the activated Python
-      - run: poetry install --with dev --no-root --no-interaction --no-ansi
+      # 3) (Optional) Rebind Poetry to the Actions Python
+      - name: Ensure Poetry uses the Actions Python
+        shell: bash
+        run: poetry env use "$(python -c 'import sys; print(sys.executable)')"
+
+      - name: Install deps
+        run: poetry install --with dev
 
       - name: Run checks and capture logs (fail correctly)
         shell: bash
