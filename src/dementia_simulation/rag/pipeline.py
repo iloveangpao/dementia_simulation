@@ -7,6 +7,7 @@ to create contextually informed responses for dementia patient simulation.
 
 from typing import List, Dict, Optional
 from dataclasses import dataclass
+import asyncio
 from loguru import logger
 import os
 from datetime import datetime
@@ -418,56 +419,6 @@ class DementiaRAGPipeline:
             "model_loaded": self.generator is not None or self.use_openai,
         }
         return stats
-
-
-# Convenience function for backward compatibility and easier access
-async def generate_response(
-    user_input: str,
-    persona: DementiaPersona,
-    history: Optional[List[Dict]] = None,
-    retriever: Optional[FAISSRetriever] = None,
-    model_name: str = "microsoft/DialoGPT-medium",
-    use_openai: bool = False,
-) -> RAGResponse:
-    """
-    Generate a persona-aware response using the RAG pipeline.
-    
-    This is a convenience function that creates a pipeline instance and generates
-    a response. For multiple calls, it's more efficient to create a pipeline
-    instance once and reuse it.
-    
-    Args:
-        user_input: The user's input message
-        persona: DementiaPersona object with patient information
-        history: List of previous conversation exchanges (optional)
-        retriever: Optional FAISSRetriever instance
-        model_name: HuggingFace model name for text generation
-        use_openai: Whether to use OpenAI API
-        
-    Returns:
-        RAGResponse object containing the generated response and metadata
-        
-    Example:
-        >>> from dementia_simulation.persona.models import create_sample_personas
-        >>> personas = create_sample_personas()
-        >>> persona = personas[0]
-        >>> response = await generate_response(
-        ...     "How are you feeling today?",
-        ...     persona
-        ... )
-        >>> print(response.response_text)
-    """
-    pipeline = DementiaRAGPipeline(
-        retriever=retriever,
-        model_name=model_name,
-        use_openai=use_openai,
-    )
-    
-    return await pipeline.generate_response(
-        user_input=user_input,
-        persona=persona,
-        conversation_history=history,
-    )
 
 
 if __name__ == "__main__":
