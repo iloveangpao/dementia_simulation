@@ -73,6 +73,9 @@ python test_persona.py          # Basic functionality tests
 python validate_requirements.py # Requirements validation
 python test_edge_cases.py      # Edge case testing
 python example_usage.py        # Usage demonstration
+
+# Run pytest unit tests
+pytest tests/unit/test_patient_persona.py -v
 ```
 
 ## Implementation Details
