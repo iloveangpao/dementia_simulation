@@ -465,9 +465,19 @@ The system supports multiple language models:
 
 ## 📚 API Reference
 
+The FastAPI server provides comprehensive REST endpoints for chat and evaluation functionality. Full interactive documentation is available at `/docs` when the server is running.
+
 ### Chat Endpoint
 
+**POST** `/chat` - Interact with a dementia persona
+
+Accepts flexible schemas for compatibility:
+- `message` or `text` - The user's message (required)
+- `persona_id` - Specific persona to chat with (optional)
+- `session_id` - Session identifier for tracking (optional)
+
 ```bash
+# Using 'message' field
 curl -X POST "http://localhost:8000/chat" \
   -H "Content-Type: application/json" \
   -d '{
@@ -475,18 +485,90 @@ curl -X POST "http://localhost:8000/chat" \
     "persona_id": "persona_1",
     "session_id": "my_session"
   }'
+
+# Using 'text' field (alternative)
+curl -X POST "http://localhost:8000/chat" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "Hello, how are you?",
+    "session_id": "my_session"
+  }'
+```
+
+**Response:**
+```json
+{
+  "response": "I'm feeling a bit confused...",
+  "reply": "I'm feeling a bit confused...",
+  "persona_mood": "confused",
+  "mood": "confused",
+  "confidence_score": 0.85,
+  "processing_time": 1.2,
+  "model_used": "microsoft/DialoGPT-medium",
+  "retrieved_docs": 3,
+  "session_id": "my_session"
+}
 ```
 
 ### Evaluation Endpoint
 
+**POST** `/evaluate` - Evaluate caregiver empathy and communication
+
+Accepts flexible input formats:
+- `transcript` - Simple text transcript to evaluate (recommended for quick evaluation)
+- `conversation_history` + `caregiver_responses` - Detailed conversation data
+
 ```bash
+# Using transcript (simple)
 curl -X POST "http://localhost:8000/evaluate" \
   -H "Content-Type: application/json" \
   -d '{
-    "conversation_history": [...],
+    "transcript": "I understand how you feel. Let me help you with that."
+  }'
+
+# Using detailed conversation history
+curl -X POST "http://localhost:8000/evaluate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "conversation_history": [
+      {"speaker": "caregiver", "message": "How are you feeling?"},
+      {"speaker": "patient", "message": "Confused...", "mood": "confused"}
+    ],
     "caregiver_responses": ["How are you feeling?", "I understand..."]
   }'
 ```
+
+**Response:**
+```json
+{
+  "overall_empathy_score": 0.75,
+  "overall_score": 0.75,
+  "detailed_scores": {
+    "validation": 0.8,
+    "emotional_support": 0.7,
+    "patience": 0.85,
+    "communication_clarity": 0.75,
+    "non_confrontational": 0.9
+  },
+  "flags": {
+    "low_validation": false,
+    "low_patience": false,
+    "needs_improvement": false
+  },
+  "feedback": ["Good validation of feelings"],
+  "strengths": ["Excellent patience"],
+  "improvements": ["Could improve emotional support"]
+}
+```
+
+### Other Endpoints
+
+- **GET** `/health` - Health check
+- **GET** `/personas` - List all available personas
+- **GET** `/personas/{persona_id}` - Get specific persona details
+- **GET** `/sessions/{session_id}` - Get session conversation history
+- **DELETE** `/sessions/{session_id}` - Delete a session
+- **GET** `/stats` - Get system statistics
 
 ## 🤝 Contributing
 
