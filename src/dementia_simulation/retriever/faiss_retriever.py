@@ -6,7 +6,6 @@ for the RAG pipeline, specifically tailored for dementia care knowledge.
 """
 
 import os
-import pickle
 from typing import List, Dict, Tuple, Optional
 import numpy as np
 import faiss

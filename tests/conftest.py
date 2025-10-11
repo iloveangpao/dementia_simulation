@@ -3,8 +3,6 @@
 import pytest
 import asyncio
 import tempfile
-import os
-from typing import Dict, List
 from unittest.mock import Mock, AsyncMock
 
 from dementia_simulation.persona.models import DementiaPersona, DementiaStage, create_sample_personas
