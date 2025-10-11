@@ -1,7 +1,5 @@
 """Unit tests for persona models."""
 
-import pytest
-from datetime import datetime, timedelta
 
 from dementia_simulation.persona.models import (
     DementiaPersona, DementiaStage, MoodState, 
@@ -137,7 +135,6 @@ class TestDementiaPersona:
     def test_mood_update(self):
         """Test mood update functionality."""
         persona = DementiaPersona("Test", 75, DementiaStage.MILD)
-        original_mood = persona.current_mood
         
         # Update mood with trigger
         new_mood = persona.update_mood("validation")
