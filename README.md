@@ -96,18 +96,27 @@ python build_index.py --output-dir embeddings --kb-dir data/knowledge_base
 
 #### 🖥️ Command Line Interface
 
-Start an interactive conversation:
+**Simple REPL Interface** (for basic training):
 ```bash
+# Start the simple REPL loop
+python frontend/cli/main.py
+
+# Features:
+# - Interactive caregiver-patient conversation
+# - Change personas with /persona <name> <stage>
+# - Exit with /quit
+# - All conversations logged in logs/ directory
+```
+
+**Advanced CLI** (with full RAG pipeline):
+```bash
+# Start an interactive conversation
 poetry run dementia-sim chat
-```
 
-List available personas:
-```bash
+# List available personas
 poetry run dementia-sim personas
-```
 
-Analyze a saved conversation:
-```bash
+# Analyze a saved conversation
 poetry run dementia-sim analyze data/sessions/conversation_margaret_20240101_120000.json
 ```
 
