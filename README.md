@@ -166,26 +166,38 @@ persona.add_to_conversation_history("I'm not sure... where am I?", "patient")
 # Get context prompt for LLM (includes scenario context, symptoms, mood)
 system_prompt = persona.get_context_prompt()
 
-# Or use pre-configured sample personas
+# Or use pre-configured sample personas (loads from data/personas/sample_personas.json)
 personas = create_sample_personas()
+
+# Or load personas from a custom JSON file
+from dementia_simulation.persona import load_personas_from_json
+custom_personas = load_personas_from_json("path/to/custom_personas.json")
 ```
 
 ### Sample Personas
 
-### Mild Dementia - Margaret (78 years old)
-- **Background**: Retired teacher, widow
-- **Symptoms**: Occasional memory lapses, word-finding difficulties
+The system includes pre-configured sample personas loaded from `data/personas/sample_personas.json`:
+
+#### Mild Dementia - Margaret Chua (78 years old)
+- **Background**: Homemaker, widow, lives with daughter
+- **Diagnosis**: Mild Cognitive Impairment progressing to early-stage vascular dementia
+- **Medications**: Glucosamine, Furosemide, Tolbutamide, Enalapril, multivitamins
+- **Current Concerns**: Forgetting names, difficulty with telephone, confused about dates
 - **Communication**: Generally coherent, may need gentle reminders
 
-### Moderate Dementia - Robert (82 years old) 
-- **Background**: Retired engineer, married 55 years
-- **Symptoms**: Significant memory problems, confusion about time/place
-- **Communication**: May not recognize familiar people, repetitive questions
+#### Moderate Dementia - Gopal Ramakrishnan (75 years old) 
+- **Background**: Retired police officer, divorced, lives with son
+- **Diagnosis**: Moderate-stage Alzheimer's disease
+- **Medications**: Memantine, Aricept, Metformin, Citalopram
+- **Current Concerns**: Repeats questions, doesn't recognize family, wanders at night
+- **Communication**: Often confused, may not recognize familiar people, repetitive questions
 
-### Severe Dementia - Eleanor (85 years old)
-- **Background**: Former nurse, widow
-- **Symptoms**: Severe memory impairment, limited communication
-- **Communication**: Very simple words, focuses on emotions over facts
+#### Severe Dementia - Rosmah Wati (87 years old)
+- **Background**: Retired teacher, widow, lives with daughter and helper
+- **Diagnosis**: Severe Alzheimer's disease with behavioral symptoms
+- **Medications**: Risperidone (PRN)
+- **Current Concerns**: Very limited communication, needs assistance with all activities
+- **Communication**: Very simple words or non-verbal, focuses on emotions over facts
 
 ## 📊 Empathy Evaluation
 

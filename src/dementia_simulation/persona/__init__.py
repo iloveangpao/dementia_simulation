@@ -7,6 +7,7 @@ from .models import (
     MoodState,
     PersonalityTraits,
     create_sample_personas,
+    load_personas_from_json,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "MemoryProfile",
     "PersonalityTraits",
     "create_sample_personas",
+    "load_personas_from_json",
 ]

@@ -376,8 +376,108 @@ Behavioral Guidelines for {self.stage.value} dementia:
         }
 
 
+def load_personas_from_json(json_path: str) -> List[DementiaPersona]:
+    """
+    Load personas from a JSON file.
+
+    Args:
+        json_path: Path to the JSON file containing persona definitions
+
+    Returns:
+        List of DementiaPersona objects
+    """
+    import json
+    from pathlib import Path
+
+    path = Path(json_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Persona file not found: {json_path}")
+
+    with open(path, "r") as f:
+        personas_data = json.load(f)
+
+    personas = []
+    for data in personas_data:
+        # Map stage string to enum
+        stage_map = {
+            "mild": DementiaStage.MILD,
+            "moderate": DementiaStage.MODERATE,
+            "severe": DementiaStage.SEVERE,
+        }
+        stage = stage_map.get(data["stage"].lower(), DementiaStage.MILD)
+
+        # Build background dict from available data
+        background = data.get("background", {}).copy()
+
+        # Add medical history to background if available
+        if "medical_history" in data:
+            med_hist = data["medical_history"]
+            if "diagnosis" in med_hist:
+                background["diagnosis"] = med_hist["diagnosis"]
+            if "medications" in med_hist:
+                background["medications"] = med_hist["medications"]
+            if "other_conditions" in med_hist:
+                background["other_conditions"] = med_hist["other_conditions"]
+
+        # Build context from current concerns if available
+        context = ""
+        if "current_concerns" in data and data["current_concerns"]:
+            concerns = data["current_concerns"]
+            context = "Current concerns: " + "; ".join(concerns[:3])
+
+        persona = DementiaPersona(
+            name=data["name"],
+            age=data["age"],
+            stage=stage,
+            background=background,
+            context=context,
+        )
+
+        personas.append(persona)
+
+    return personas
+
+
 def create_sample_personas() -> List[DementiaPersona]:
-    """Create sample personas for testing and demonstration."""
+    """
+    Create sample personas for testing and demonstration.
+
+    Attempts to load from data/personas/sample_personas.json if available,
+    otherwise falls back to hardcoded personas.
+
+    Returns:
+        List of DementiaPersona objects
+    """
+    from pathlib import Path
+
+    # Try to find the JSON file relative to this module
+    current_dir = Path(__file__).parent
+    json_path = (
+        current_dir.parent.parent.parent
+        / "data"
+        / "personas"
+        / "sample_personas.json"
+    )
+
+    # Also check if running from installed package
+    if not json_path.exists():
+        # Try relative to current working directory
+        json_path = Path("data/personas/sample_personas.json")
+
+    if json_path.exists():
+        try:
+            return load_personas_from_json(str(json_path))
+        except Exception as e:
+            # Fall back to hardcoded personas if loading fails
+            import warnings
+
+            warnings.warn(
+                f"Failed to load personas from {json_path}: {e}. "
+                f"Using hardcoded personas.",
+                stacklevel=2,
+            )
+
+    # Fallback hardcoded personas
     personas = [
         DementiaPersona(
             name="Margaret",
@@ -388,6 +488,7 @@ def create_sample_personas() -> List[DementiaPersona]:
                 "family": "Widow, 2 adult children",
                 "interests": "Reading, gardening, classical music",
             },
+            context="At home, concerned about memory lapses",
         ),
         DementiaPersona(
             name="Robert",
@@ -398,6 +499,7 @@ def create_sample_personas() -> List[DementiaPersona]:
                 "family": "Married 55 years, 3 children",
                 "interests": "Woodworking, baseball, old movies",
             },
+            context="Often confused about time and place",
         ),
         DementiaPersona(
             name="Eleanor",
@@ -408,6 +510,7 @@ def create_sample_personas() -> List[DementiaPersona]:
                 "family": "Widow, 4 children, 8 grandchildren",
                 "interests": "Used to love cooking and knitting",
             },
+            context="Requires constant supervision and care",
         ),
     ]
 
