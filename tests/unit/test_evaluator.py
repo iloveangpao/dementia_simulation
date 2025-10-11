@@ -1,11 +1,8 @@
 """Unit tests for empathy evaluator."""
 
 import pytest
-import asyncio
 
-from dementia_simulation.evaluator.empathy_evaluator import (
-    EmpathyEvaluator, EmpathyMetrics
-)
+from dementia_simulation.evaluator.empathy_evaluator import EmpathyMetrics
 
 
 class TestEmpathyMetrics:

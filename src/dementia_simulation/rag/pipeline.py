@@ -5,7 +5,7 @@ This module combines document retrieval with language model generation
 to create contextually informed responses for dementia patient simulation.
 """
 
-from typing import List, Dict, Optional, Tuple, Any
+from typing import List, Dict, Optional
 from dataclasses import dataclass
 import asyncio
 from loguru import logger

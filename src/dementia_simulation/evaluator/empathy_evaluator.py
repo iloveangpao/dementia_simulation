@@ -10,7 +10,6 @@ from dataclasses import dataclass
 import re
 from datetime import datetime
 import asyncio
-from loguru import logger
 
 
 @dataclass
