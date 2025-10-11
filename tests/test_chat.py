@@ -8,7 +8,7 @@ import unittest
 from datetime import datetime
 
 # Add src directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from chat import (
     ChatMessage,
@@ -42,9 +42,7 @@ class TestPersonaState(unittest.TestCase):
     def test_persona_state_custom_values(self):
         """Test creating PersonaState with custom values."""
         persona = PersonaState(
-            current_mood="happy",
-            confusion_level=0.5,
-            mood_intensity=0.7
+            current_mood="happy", confusion_level=0.5, mood_intensity=0.7
         )
         self.assertEqual(persona.current_mood, "happy")
         self.assertEqual(persona.confusion_level, 0.5)
@@ -64,11 +62,7 @@ class TestChatMessage(unittest.TestCase):
     def test_chat_message_creation(self):
         """Test creating a ChatMessage."""
         timestamp = datetime.now()
-        message = ChatMessage(
-            timestamp=timestamp,
-            speaker="user",
-            content="Hello"
-        )
+        message = ChatMessage(timestamp=timestamp, speaker="user", content="Hello")
         self.assertEqual(message.speaker, "user")
         self.assertEqual(message.content, "Hello")
         self.assertEqual(message.timestamp, timestamp)
@@ -79,7 +73,7 @@ class TestChatMessage(unittest.TestCase):
             timestamp=datetime.now(),
             speaker="patient",
             content="Hi there",
-            persona_state_snapshot={"mood": "calm"}
+            persona_state_snapshot={"mood": "calm"},
         )
         message_dict = message.to_dict()
         self.assertIsInstance(message_dict, dict)
@@ -260,11 +254,7 @@ class TestDementiaSimulationChat(unittest.TestCase):
 
     def test_chat_loop_multiple_turns(self):
         """Test multiple conversation turns."""
-        inputs = [
-            "Hello",
-            "How are you feeling?",
-            "Would you like some tea?"
-        ]
+        inputs = ["Hello", "How are you feeling?", "Would you like some tea?"]
 
         for user_input in inputs:
             response, persona_state = self.chat.chat_loop(user_input)
@@ -347,7 +337,7 @@ class TestDementiaSimulationChat(unittest.TestCase):
         inputs = [
             "The doctor wants to see you",
             "You need to take your medicine",
-            "Everything will be okay"
+            "Everything will be okay",
         ]
 
         for user_input in inputs:
@@ -370,7 +360,7 @@ class TestIntegration(unittest.TestCase):
             "Would you like some breakfast?",
             "Your daughter called earlier.",
             "Do you remember what we talked about yesterday?",
-            "Let's go for a walk."
+            "Let's go for a walk.",
         ]
 
         for message in conversation:
@@ -415,9 +405,9 @@ class TestIntegration(unittest.TestCase):
 
         # Total items in all memory types should be reasonable
         total_memory_items = (
-            len(state["short_term_memory"]) +
-            len(state["long_term_memory"]) +
-            len(state["forgotten_topics"])
+            len(state["short_term_memory"])
+            + len(state["long_term_memory"])
+            + len(state["forgotten_topics"])
         )
 
         self.assertGreater(total_memory_items, 0)

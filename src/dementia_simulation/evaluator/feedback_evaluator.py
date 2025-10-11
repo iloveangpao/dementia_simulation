@@ -274,9 +274,7 @@ class CaregiverFeedbackEvaluator:
 
         # Detect patterns
         reassurance_words = self.detect_patterns(text, self.reassurance_patterns)
-        confrontation_words = self.detect_patterns(
-            text, self.confrontation_patterns
-        )
+        confrontation_words = self.detect_patterns(text, self.confrontation_patterns)
 
         # Calculate scores
         text_length = len(text)

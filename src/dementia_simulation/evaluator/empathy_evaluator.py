@@ -46,8 +46,7 @@ class EmpathyEvaluator:
             },
             {
                 "pattern": (
-                    r"\b(that must be|how (difficult|hard|frustrating)"
-                    r"|i imagine)\b"
+                    r"\b(that must be|how (difficult|hard|frustrating)" r"|i imagine)\b"
                 ),
                 "category": "emotional_support",
                 "weight": 0.7,

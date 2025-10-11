@@ -48,13 +48,14 @@ class PersonaState:
             "repetition_tendency": self.repetition_tendency,
             "time_orientation": self.time_orientation,
             "last_topics": self.last_topics,
-            "preferred_topics": self.preferred_topics
+            "preferred_topics": self.preferred_topics,
         }
 
 
 @dataclass
 class ChatMessage:
     """Represents a single message in the chat history."""
+
     timestamp: datetime
     speaker: str  # "user" or "patient"
     content: str
@@ -66,7 +67,7 @@ class ChatMessage:
             "timestamp": self.timestamp.isoformat(),
             "speaker": self.speaker,
             "content": self.content,
-            "persona_state_snapshot": self.persona_state_snapshot
+            "persona_state_snapshot": self.persona_state_snapshot,
         }
 
 
@@ -139,9 +140,7 @@ class DementiaSimulationRules:
         return persona
 
 
-def rag_pipeline(
-    query: str, context: List[str], persona_state: PersonaState
-) -> str:
+def rag_pipeline(query: str, context: List[str], persona_state: PersonaState) -> str:
     """
     Mock RAG (Retrieval-Augmented Generation) pipeline for generating
     dementia-simulated responses.
@@ -157,32 +156,32 @@ def rag_pipeline(
             "I'm not sure what you mean... where am I?",
             "That sounds familiar, but I can't quite remember...",
             "Is it time for lunch? I thought we just had breakfast.",
-            "Who are you again? You seem nice."
+            "Who are you again? You seem nice.",
         ],
         "repetitive": [
             "I need to go home. When can I go home?",
             "Have you seen my mother? She should be here by now.",
             "I think I left something important somewhere...",
-            "This place looks different than I remember."
+            "This place looks different than I remember.",
         ],
         "family_focused": [
             "That reminds me of my children when they were young.",
             "Do you know my family? Are they coming to visit?",
             "I used to do this with my mother...",
-            "Where is everyone? They said they'd be here."
+            "Where is everyone? They said they'd be here.",
         ],
         "anxious": [
             "Something doesn't feel right...",
             "I'm worried about something, but I can't remember what.",
             "Are you sure this is the right place?",
-            "I feel like I should be somewhere else."
+            "I feel like I should be somewhere else.",
         ],
         "content": [
             "This is nice. Thank you for being here.",
             "I appreciate your patience with me.",
             "It's a lovely day, isn't it?",
-            "You're very kind to help me."
-        ]
+            "You're very kind to help me.",
+        ],
     }
 
     # Select response category based on persona state
@@ -204,7 +203,7 @@ def rag_pipeline(
 
     # Add repetition if tendency is high
     if persona_state.repetition_tendency > 0.6 and random.random() < 0.5:
-        response += " " + response.split('.')[0] + "."
+        response += " " + response.split(".")[0] + "."
 
     return response
 
@@ -230,9 +229,7 @@ class DementiaSimulationChat:
         """
         # Store user message in history
         user_message = ChatMessage(
-            timestamp=datetime.now(),
-            speaker="user",
-            content=user_input
+            timestamp=datetime.now(), speaker="user", content=user_input
         )
         self.chat_history.append(user_message)
 
@@ -251,9 +248,7 @@ class DementiaSimulationChat:
 
         # Generate response using RAG pipeline
         patient_response = rag_pipeline(
-            query=user_input,
-            context=recent_messages,
-            persona_state=self.persona_state
+            query=user_input, context=recent_messages, persona_state=self.persona_state
         )
 
         # Store patient response in history with persona state snapshot
@@ -261,7 +256,7 @@ class DementiaSimulationChat:
             timestamp=datetime.now(),
             speaker="patient",
             content=patient_response,
-            persona_state_snapshot=self.persona_state.to_dict()
+            persona_state_snapshot=self.persona_state.to_dict(),
         )
         self.chat_history.append(patient_message)
 
@@ -294,7 +289,7 @@ def run_demo_conversation():
         "Would you like to have some lunch?",
         "Your family called and said they'll visit soon.",
         "Do you remember what we had for breakfast?",
-        "Let's take a walk in the garden."
+        "Let's take a walk in the garden.",
     ]
 
     for user_input in user_inputs:

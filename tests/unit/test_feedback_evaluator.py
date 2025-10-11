@@ -72,9 +72,7 @@ class TestCaregiverFeedbackEvaluator:
         evaluator = CaregiverFeedbackEvaluator()
         text = "No, that's wrong! You're confused and need to pay attention."
 
-        detected = evaluator.detect_patterns(
-            text, evaluator.confrontation_patterns
-        )
+        detected = evaluator.detect_patterns(text, evaluator.confrontation_patterns)
 
         assert len(detected) > 0
         # Should detect "no, that's wrong", "you're confused", "pay attention"
@@ -122,9 +120,7 @@ class TestCaregiverFeedbackEvaluator:
         detected_words = ["no, that's wrong", "you're confused", "pay attention"]
         text_length = 50
 
-        score = evaluator.calculate_confrontation_score(
-            detected_words, text_length
-        )
+        score = evaluator.calculate_confrontation_score(detected_words, text_length)
 
         assert 0.0 <= score <= 1.0
         assert score > 0.5  # Should be high with 3 patterns
@@ -135,9 +131,7 @@ class TestCaregiverFeedbackEvaluator:
         detected_words = []
         text_length = 50
 
-        score = evaluator.calculate_confrontation_score(
-            detected_words, text_length
-        )
+        score = evaluator.calculate_confrontation_score(detected_words, text_length)
 
         assert score == 0.0
 
