@@ -169,9 +169,20 @@ system_prompt = persona.get_context_prompt()
 # Or use pre-configured sample personas (loads from data/personas/sample_personas.json)
 personas = create_sample_personas()
 
-# Or load personas from a custom JSON file
-from dementia_simulation.persona import load_personas_from_json
+# Load personas from a custom JSON file with random contexts
+from dementia_simulation.persona import load_personas_from_json, get_persona_contexts
 custom_personas = load_personas_from_json("path/to/custom_personas.json")
+
+# Load personas with a specific context scenario (useful for controlled simulations)
+personas_context_0 = load_personas_from_json(
+    "data/personas/sample_personas.json",
+    context_index=0  # Uses first context for each persona
+)
+
+# Get all available contexts for each persona
+contexts = get_persona_contexts("data/personas/sample_personas.json")
+for name, context_list in contexts.items():
+    print(f"{name} has {len(context_list)} possible scenarios")
 ```
 
 ### Sample Personas
@@ -183,6 +194,7 @@ The system includes pre-configured sample personas loaded from `data/personas/sa
 - **Diagnosis**: Mild Cognitive Impairment progressing to early-stage vascular dementia
 - **Medications**: Glucosamine, Furosemide, Tolbutamide, Enalapril, multivitamins
 - **Current Concerns**: Forgetting names, difficulty with telephone, confused about dates
+- **Possible Scenarios**: At home alone, at polyclinic for check-up, at memory clinic, with daughter on weekend, attempting to cook
 - **Communication**: Generally coherent, may need gentle reminders
 
 #### Moderate Dementia - Gopal Ramakrishnan (75 years old) 
@@ -190,6 +202,7 @@ The system includes pre-configured sample personas loaded from `data/personas/sa
 - **Diagnosis**: Moderate-stage Alzheimer's disease
 - **Medications**: Memantine, Aricept, Metformin, Citalopram
 - **Current Concerns**: Repeats questions, doesn't recognize family, wanders at night
+- **Possible Scenarios**: At home asking for son, in emergency after wandering, late night confusion, at day care center, at clinic appointment
 - **Communication**: Often confused, may not recognize familiar people, repetitive questions
 
 #### Severe Dementia - Rosmah Wati (87 years old)
@@ -197,6 +210,7 @@ The system includes pre-configured sample personas loaded from `data/personas/sa
 - **Diagnosis**: Severe Alzheimer's disease with behavioral symptoms
 - **Medications**: Risperidone (PRN)
 - **Current Concerns**: Very limited communication, needs assistance with all activities
+- **Possible Scenarios**: Being fed at home, in bed calling for husband, with visiting family, in emergency after seizure, during sundowning hours
 - **Communication**: Very simple words or non-verbal, focuses on emotions over facts
 
 ## 📊 Empathy Evaluation

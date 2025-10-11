@@ -376,12 +376,46 @@ Behavioral Guidelines for {self.stage.value} dementia:
         }
 
 
-def load_personas_from_json(json_path: str) -> List[DementiaPersona]:
+def get_persona_contexts(json_path: str) -> Dict[str, List[str]]:
+    """
+    Get all possible contexts for personas in a JSON file.
+
+    Args:
+        json_path: Path to the JSON file containing persona definitions
+
+    Returns:
+        Dictionary mapping persona names to their possible contexts
+    """
+    import json
+    from pathlib import Path
+
+    path = Path(json_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Persona file not found: {json_path}")
+
+    with open(path, "r") as f:
+        personas_data = json.load(f)
+
+    contexts = {}
+    for data in personas_data:
+        name = data.get("name", "Unknown")
+        possible_contexts = data.get("possible_contexts", [])
+        contexts[name] = possible_contexts
+
+    return contexts
+
+
+def load_personas_from_json(
+    json_path: str, context_index: Optional[int] = None
+) -> List[DementiaPersona]:
     """
     Load personas from a JSON file.
 
     Args:
         json_path: Path to the JSON file containing persona definitions
+        context_index: Optional index to select a specific context from
+                      possible_contexts array. If None, uses a random context
+                      or falls back to current_concerns.
 
     Returns:
         List of DementiaPersona objects
@@ -419,9 +453,19 @@ def load_personas_from_json(json_path: str) -> List[DementiaPersona]:
             if "other_conditions" in med_hist:
                 background["other_conditions"] = med_hist["other_conditions"]
 
-        # Build context from current concerns if available
+        # Build context - prioritize possible_contexts if available
         context = ""
-        if "current_concerns" in data and data["current_concerns"]:
+        if "possible_contexts" in data and data["possible_contexts"]:
+            possible_contexts = data["possible_contexts"]
+            if context_index is not None:
+                # Use specified context index
+                idx = context_index % len(possible_contexts)
+                context = possible_contexts[idx]
+            else:
+                # Use random context
+                context = random.choice(possible_contexts)
+        elif "current_concerns" in data and data["current_concerns"]:
+            # Fallback to current concerns
             concerns = data["current_concerns"]
             context = "Current concerns: " + "; ".join(concerns[:3])
 
