@@ -1,268 +1,369 @@
-# Dementia Simulation Chatbot
+# Dementia Simulation
 
-A comprehensive simulation tool for dementia patients to help caregivers practice empathetic communication skills.
+A comprehensive platform for dementia patient simulation to help caregivers practice empathetic communication. The system includes interactive chat interfaces, persona management, memory simulation, and caregiver feedback evaluation.
 
-## 🎯 Purpose
+## Features
 
-This application provides realistic simulations of conversations with dementia patients at different stages (mild, moderate, severe) to help caregivers, family members, and healthcare professionals develop empathetic communication skills and learn appropriate responses to various dementia-related behaviors.
+- **Interactive Chat**: CLI, Streamlit web interface, and API endpoints for caregiver-patient conversations
+- **Patient Personas**: Multiple personas with different dementia stages (mild, moderate, severe)
+- **Memory Simulation**: Realistic memory degradation and forgetting patterns based on dementia stage
+- **Mood Tracking**: Dynamic mood states (calm, agitated, withdrawn) that change during interactions
+- **Caregiver Evaluation**: Automated feedback on communication quality, empathy, and technique
+- **Document Retrieval**: FAISS-based knowledge base for contextually relevant responses
+- **Conversation Logging**: Automatic session recording for review and analysis
 
-## ✨ Features
-
-- **🎭 Realistic Personas**: Three distinct dementia stages with unique characteristics
-- **🤖 AI-Powered Responses**: Uses RAG (Retrieval-Augmented Generation) with knowledge base
-- **📊 Empathy Evaluation**: Real-time assessment of communication empathy
-- **🌐 Multiple Interfaces**: CLI, Web API, and Streamlit UI
-- **📚 Knowledge Base**: Comprehensive dementia care information
-- **🔍 FAISS Retrieval**: Semantic search for relevant care information
-- **📝 Logging & Analytics**: Detailed conversation and performance tracking
-
-## 🏗️ Architecture
-
-```
-dementia_simulation/
-├── src/dementia_simulation/    # Core package
-│   ├── persona/               # Dementia personas and stages
-│   ├── retriever/             # FAISS-based document retrieval
-│   ├── rag/                   # RAG pipeline with LLaMA2/Mistral
-│   ├── api/                   # FastAPI server
-│   ├── cli/                   # Command-line interface
-│   ├── evaluator/             # Empathy evaluation system
-│   └── utils/                 # Utilities and logging
-├── data/                      # Data storage
-│   ├── knowledge_base/        # Dementia care information
-│   ├── personas/              # Persona definitions
-│   └── sessions/              # Conversation sessions
-├── embeddings/                # FAISS indices and embeddings
-├── frontend/                  # Streamlit web interface
-├── tests/                     # Unit and integration tests
-└── logs/                      # Application logs
-```
-
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
-1. **Clone the repository:**
+1. Clone the repository:
 ```bash
 git clone https://github.com/iloveangpao/dementia_simulation.git
 cd dementia_simulation
 ```
 
-2. **Install dependencies:**
+2. Install dependencies:
 ```bash
-# Using Poetry (recommended)
-pip install poetry
-poetry install
-
-# Or using pip
 pip install -r requirements.txt
 ```
 
-3. **Setup environment:**
+3. Set up the environment:
 ```bash
-# Copy environment template
-cp .env.example .env
-
-# Edit .env with your API keys (optional)
-# OPENAI_API_KEY=your_key_here
-# HUGGINGFACE_TOKEN=your_token_here
+dementia-sim setup
 ```
 
-4. **Initialize the application:**
-```bash
-# Using Poetry
-poetry run dementia-sim setup
+This will create necessary directories and a `.env` configuration file.
 
-# Or direct Python
-python -m dementia_simulation.cli.main setup
+### Running the Application
+
+**Option 1: Streamlit Web Interface (Recommended)**
+```bash
+dementia-sim streamlit
+```
+Access at: http://localhost:8501
+
+**Option 2: CLI Chat Interface**
+```bash
+dementia-sim chat
 ```
 
-### Usage
-
-#### 🖥️ Command Line Interface
-
-Start an interactive conversation:
+**Option 3: API Server**
 ```bash
-poetry run dementia-sim chat
+dementia-sim server
+```
+API docs at: http://localhost:8000/docs
+
+## CLI Commands
+
+The `dementia-sim` command provides several subcommands:
+
+- `dementia-sim setup` - Initialize the environment and create configuration files
+- `dementia-sim chat` - Start an interactive chat session
+- `dementia-sim personas` - List all available patient personas
+- `dementia-sim server` - Start the FastAPI backend server
+- `dementia-sim streamlit` - Launch the Streamlit web interface
+- `dementia-sim analyze <session_file>` - Analyze a saved conversation session
+
+## Project Structure
+
+```
+dementia_simulation/
+├── src/
+│   ├── dementia_simulation/
+│   │   ├── api/              # FastAPI server endpoints
+│   │   ├── cli/              # CLI interface and commands
+│   │   ├── evaluator/        # Caregiver feedback evaluation
+│   │   ├── persona/          # Patient persona management
+│   │   ├── rag/              # RAG pipeline for response generation
+│   │   ├── retriever/        # Document retrieval with FAISS
+│   │   └── utils/            # Utility functions
+│   ├── chat.py               # Chat system implementation
+│   ├── evaluator.py          # Evaluator implementation
+│   ├── persona.py            # Persona class
+│   ├── rag_pipeline.py       # RAG pipeline
+│   └── retriever.py          # Document retriever
+├── frontend/
+│   ├── streamlit_app.py      # Streamlit web interface
+│   ├── app.py                # Alternative Streamlit app
+│   └── cli.py                # CLI interface
+├── data/
+│   ├── uploads/              # Document uploads
+│   ├── processed/            # Processed documents
+│   ├── knowledge_base/       # Knowledge base files
+│   ├── personas/             # Persona definitions
+│   └── sessions/             # Saved conversation sessions
+├── tests/                    # Test suite
+├── notebooks/                # Jupyter notebooks
+└── README.md                 # This file
 ```
 
-List available personas:
-```bash
-poetry run dementia-sim personas
+## API Endpoints
+
+The FastAPI server provides the following endpoints:
+
+### POST /api/chat
+Send a message to the dementia patient simulation.
+
+**Request:**
+```json
+{
+  "text": "Hello, how are you feeling today?",
+  "persona_id": "persona_1"
+}
 ```
 
-Analyze a saved conversation:
-```bash
-poetry run dementia-sim analyze data/sessions/conversation_margaret_20240101_120000.json
+**Response:**
+```json
+{
+  "patient_reply": "Who are you? I don't recognize you...",
+  "persona_mood": "confused",
+  "mood_state": "agitated"
+}
 ```
 
-#### 🌐 Web Interface
+### POST /api/evaluate
+Evaluate caregiver performance based on conversation.
 
-Start the Streamlit web app:
-```bash
-poetry run dementia-sim streamlit
-# Opens http://localhost:8501
+**Request:**
+```json
+{
+  "transcript": "I spoke to the patient with calm and gentle words.",
+  "caregiver_responses": ["That's okay", "I understand how you feel"]
+}
 ```
 
-#### 🔗 API Server
-
-Start the FastAPI server:
-```bash
-poetry run dementia-sim server
-# API available at http://localhost:8000
-# Documentation at http://localhost:8000/docs
+**Response:**
+```json
+{
+  "overall_score": 8.5,
+  "empathy_score": 9.0,
+  "communication_score": 8.0,
+  "patience_score": 9.0,
+  "feedback": ["Excellent use of reassurance"],
+  "improvement_suggestions": ["Continue using supportive language"]
+}
 ```
 
-## 🎭 Dementia Personas
+### GET /api/personas
+List all available patient personas.
 
-### Mild Dementia - Margaret (78 years old)
-- **Background**: Retired teacher, widow
-- **Symptoms**: Occasional memory lapses, word-finding difficulties
-- **Communication**: Generally coherent, may need gentle reminders
+### POST /api/mood
+Update patient mood score.
 
-### Moderate Dementia - Robert (82 years old) 
-- **Background**: Retired engineer, married 55 years
-- **Symptoms**: Significant memory problems, confusion about time/place
-- **Communication**: May not recognize familiar people, repetitive questions
+Visit http://localhost:8000/docs for interactive API documentation.
 
-### Severe Dementia - Eleanor (85 years old)
-- **Background**: Former nurse, widow
-- **Symptoms**: Severe memory impairment, limited communication
-- **Communication**: Very simple words, focuses on emotions over facts
+## Core Components
 
-## 📊 Empathy Evaluation
+### Patient Personas
+The system simulates different patient personas with varying dementia stages. Each persona includes:
+- Name, age, and background information
+- Dementia stage (mild, moderate, severe)
+- Memory capacity and retention parameters
+- Mood state and behavioral patterns
+- Personality characteristics
 
-The system evaluates caregiver responses across multiple dimensions:
+See [PERSONA_README.md](PERSONA_README.md) for detailed persona API documentation.
 
-- **Validation**: Acknowledging feelings without correction
-- **Emotional Support**: Providing comfort and reassurance  
-- **Respect & Dignity**: Maintaining the person's dignity
-- **Patience**: Handling repetition and confusion gracefully
-- **Communication Clarity**: Using clear, simple language
-- **Non-confrontational**: Avoiding arguments and corrections
+### Chat System
+The chat system orchestrates conversations between caregivers and simulated patients:
+- Stores complete conversation history
+- Applies forgetting rules based on dementia stage
+- Updates mood states dynamically
+- Generates contextually appropriate responses
+- Supports conversation persistence
 
-## 🛠️ Development
+### RAG Pipeline
+The Retrieval-Augmented Generation pipeline:
+- Retrieves relevant dementia care information from the knowledge base
+- Constructs persona-aware prompts with conversation context
+- Generates patient responses using AI models or rule-based fallbacks
+- Ensures responses match the patient's cognitive state and mood
 
-### Running Tests
+### Caregiver Evaluation
+The evaluator analyzes caregiver responses for:
+- **Reassurance**: Use of supportive and comforting language
+- **Confrontation**: Presence of corrective or confrontational language
+- **Overall Quality**: Combined score emphasizing positive communication
+- **Feedback**: Specific suggestions for improvement
 
-```bash
-# Run all tests
-poetry run pytest
+See [README_evaluator.md](README_evaluator.md) for detailed evaluation API documentation.
 
-# Run with coverage
-poetry run pytest --cov=src --cov-report=html
+## Usage Examples
 
-# Run specific test file
-poetry run pytest tests/unit/test_persona.py
+### Python API Usage
+
+```python
+from src.dementia_simulation.persona import PatientPersona, DementiaStage, MoodState
+
+# Create a patient persona
+patient = PatientPersona(
+    name="Mary Johnson",
+    dementia_stage=DementiaStage.MODERATE,
+    initial_mood=MoodState.CALM
+)
+
+# Simulate a conversation
+from src.chat import DementiaSimulationChat
+
+chat = DementiaSimulationChat()
+response, state = chat.chat_loop("Hello, how are you feeling today?")
+print(f"Patient: {response}")
+print(f"Mood: {state['current_mood']}, Confusion: {state['confusion_level']}")
 ```
 
-### Code Quality
+### Evaluating Caregiver Responses
 
-```bash
-# Format code
-poetry run black src/ tests/
+```python
+from src.evaluator import CaregiverFeedbackEvaluator
 
-# Sort imports
-poetry run isort src/ tests/
+evaluator = CaregiverFeedbackEvaluator()
+result = evaluator.analyze_feedback("Okay, I understand how you feel.")
 
-# Lint code
-poetry run flake8 src/ tests/
-
-# Type checking
-poetry run mypy src/
+print(f"Reassurance Score: {result['scores']['reassurance_score']}")
+print(f"Overall Score: {result['scores']['overall_score']}")
+print(f"Feedback Type: {result['analysis']['feedback_type']}")
 ```
 
-### Adding New Personas
+## Document Knowledge Base
 
-1. Create persona in `data/personas/`
-2. Update `persona/models.py` if needed
-3. Add to knowledge base in `data/knowledge_base/`
-4. Test with unit tests
+### Adding Documents
 
-## 🔧 Configuration
-
-### Environment Variables
-
+1. Place PDF or text files in `data/uploads/` directory
+2. Run preprocessing:
 ```bash
-# API Keys (optional)
-OPENAI_API_KEY=your_openai_key
-HUGGINGFACE_TOKEN=your_hf_token
+python run_preprocessing.py
+```
 
-# Model Configuration
+3. Build the search index:
+```bash
+# For offline use (TF-IDF)
+python build_index_tfidf.py
+
+# For better semantic search (requires internet)
+python build_index.py
+```
+
+4. Search documents:
+```bash
+python search.py "memory loss symptoms"
+```
+
+## Configuration
+
+Edit `.env` file to configure:
+```bash
+OPENAI_API_KEY=your_key_here          # Optional, for OpenAI models
+HUGGINGFACE_TOKEN=your_token_here     # Optional, for HuggingFace models
 DEFAULT_MODEL=microsoft/DialoGPT-medium
 EMBEDDING_MODEL=all-MiniLM-L6-v2
-
-# Server Configuration
 API_HOST=localhost
 API_PORT=8000
 LOG_LEVEL=INFO
-
-# Data Paths
-FAISS_INDEX_PATH=embeddings/faiss_index
-KNOWLEDGE_BASE_PATH=data/knowledge_base
 ```
 
-### Models
+## Testing
 
-The system supports multiple language models:
-
-- **Local Models**: Uses HuggingFace transformers (DialoGPT, Mistral, LLaMA2)
-- **OpenAI API**: GPT-3.5-turbo, GPT-4 (requires API key)
-- **Mock Mode**: Fallback responses for testing without models
-
-## 📚 API Reference
-
-### Chat Endpoint
+Run the comprehensive test suite:
 
 ```bash
-curl -X POST "http://localhost:8000/chat" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "How are you feeling today?",
-    "persona_id": "persona_1",
-    "session_id": "my_session"
-  }'
+# Run all tests
+pytest
+
+# Run specific test modules
+python test_persona.py          # Test persona functionality
+python test_evaluator.py        # Test caregiver evaluation
+python test_retriever.py        # Test document retrieval
+python validate_requirements.py # Validate requirements compliance
+python test_edge_cases.py       # Edge case testing
+
+# Run unit tests
+python -m unittest tests.test_chat -v
+python -m unittest tests.test_rag_pipeline -v
 ```
 
-### Evaluation Endpoint
+## Example Scripts
 
+The repository includes several example scripts:
+
+- `example.py` - Automated conversation demonstration
+- `example_usage.py` - Interactive examples with multiple personas
+- `demo.py` - Complete system demonstration with memory and mood tracking
+
+Run any example:
 ```bash
-curl -X POST "http://localhost:8000/evaluate" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "conversation_history": [...],
-    "caregiver_responses": ["How are you feeling?", "I understand..."]
-  }'
+python example.py
+python example.py interactive  # Interactive mode
 ```
 
-## 🤝 Contributing
+## Dependencies
+
+Core dependencies:
+- **fastapi** - REST API server
+- **streamlit** - Web interface
+- **click** - CLI framework
+- **faiss-cpu** - Vector similarity search
+- **sentence-transformers** - Document embeddings
+- **transformers** - Language models
+- **torch** - Deep learning framework
+- **pydantic** - Data validation
+- **numpy** - Numerical operations
+- **pandas** - Data processing
+- **scikit-learn** - Machine learning utilities
+
+See `requirements.txt` and `pyproject.toml` for complete dependency lists.
+
+## Troubleshooting
+
+**Issue: Models not downloading**
+- Ensure internet connection for first-time model downloads
+- Models are cached locally after first use
+
+**Issue: FAISS index not found**
+- Run `python build_index.py` to create the search index
+- Or use `python build_index_tfidf.py` for offline operation
+
+**Issue: CLI command not found**
+- Install in development mode: `pip install -e .`
+- Or use Poetry: `poetry install`
+
+**Issue: Out of memory**
+- Reduce batch size in configuration
+- Use smaller models (e.g., DialoGPT-small)
+- Use TF-IDF indexing instead of sentence transformers
+
+## Best Practices for Dementia Care
+
+The simulation is based on evidence-based dementia care principles:
+
+1. **Use simple, clear language** - Avoid complex sentences and jargon
+2. **Be patient with repetition** - Understand that repetition is common
+3. **Avoid arguments or confrontation** - Never correct the patient aggressively
+4. **Focus on emotions, not facts** - Validate feelings rather than correcting memories
+5. **Provide reassurance and comfort** - Use supportive language consistently
+6. **Maintain dignity and respect** - Treat the person with respect at all times
+
+## Contributing
+
+Contributions are welcome! Please:
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Add tests for new functionality
-5. Run the test suite (`poetry run pytest`)
-6. Commit your changes (`git commit -m 'Add amazing feature'`)
-7. Push to the branch (`git push origin feature/amazing-feature`)
-8. Open a Pull Request
+2. Create a feature branch (`git checkout -b feature/improvement`)
+3. Add tests for new functionality
+4. Ensure all tests pass (`pytest`)
+5. Follow code style guidelines (black, isort, flake8)
+6. Submit a pull request
 
-## 📄 License
+## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is developed for educational and research purposes in dementia care simulation and caregiver training.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-- Built with [FastAPI](https://fastapi.tiangolo.com/), [Streamlit](https://streamlit.io/), and [HuggingFace Transformers](https://huggingface.co/transformers/)
-- Dementia care guidelines based on clinical best practices
-- FAISS for efficient similarity search
-- Thanks to the dementia care community for feedback and insights
+This simulation system is designed to help caregivers develop empathetic communication skills for working with dementia patients. It is not a substitute for professional medical training or advice.
 
-## 📞 Support
+## Additional Documentation
 
-- 📧 Email: support@dementiasimulation.com
-- 💬 GitHub Issues: [Create an issue](https://github.com/iloveangpao/dementia_simulation/issues)
-- 📖 Documentation: [Wiki](https://github.com/iloveangpao/dementia_simulation/wiki)
+- [PERSONA_README.md](PERSONA_README.md) - Detailed persona system documentation
+- [README_evaluator.md](README_evaluator.md) - Caregiver evaluation system documentation
 
----
-
-**⚠️ Disclaimer**: This is a training simulation tool and should not replace professional medical advice or training. Always consult healthcare professionals for actual dementia care guidance.
+For issues, questions, or contributions, please visit the [GitHub repository](https://github.com/iloveangpao/dementia_simulation).

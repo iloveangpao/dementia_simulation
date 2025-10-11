@@ -1,0 +1,9 @@
+{
+  "embedding_type": "tfidf",
+  "embedding_dimension": 358,
+  "num_chunks": 2,
+  "index_type": "IndexFlatIP",
+  "similarity_metric": "cosine",
+  "max_features": 5000,
+  "vocabulary_size": 358
+}
