@@ -111,8 +111,7 @@ class DementiaSimulationREPL:
         """Display current persona information."""
         persona_info = get_persona_info()
         print(
-            f"Current Patient: {persona_info['name']} "
-            f"(Stage: {persona_info['stage']})"
+            f"Current Patient: {persona_info['name']} (Stage: {persona_info['stage']})"
         )
         print("-" * 40)
 
@@ -200,9 +199,7 @@ class DementiaSimulationREPL:
         finally:
             # Log session end
             self.logger.log_session_end()
-            print(
-                f"Conversation log saved to: {self.logger.current_session_file}"
-            )
+            print(f"Conversation log saved to: {self.logger.current_session_file}")
 
 
 def main():

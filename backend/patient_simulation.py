@@ -75,9 +75,7 @@ class DementiaPatient:
         )
 
         # Get stage-specific patterns
-        stage_data = self.stage_responses.get(
-            self.stage, self.stage_responses["mild"]
-        )
+        stage_data = self.stage_responses.get(self.stage, self.stage_responses["mild"])
         patterns = stage_data["patterns"]
         confusion_level = stage_data["confusion_level"]
 
