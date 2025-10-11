@@ -497,10 +497,7 @@ def create_sample_personas() -> List[DementiaPersona]:
     # Try to find the JSON file relative to this module
     current_dir = Path(__file__).parent
     json_path = (
-        current_dir.parent.parent.parent
-        / "data"
-        / "personas"
-        / "sample_personas.json"
+        current_dir.parent.parent.parent / "data" / "personas" / "sample_personas.json"
     )
 
     # Also check if running from installed package

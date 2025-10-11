@@ -1,7 +1,6 @@
 """Unit tests for empathy evaluator."""
 
 import pytest
-
 from dementia_simulation.evaluator.empathy_evaluator import EmpathyMetrics
 
 

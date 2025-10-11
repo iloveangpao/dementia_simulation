@@ -5,7 +5,6 @@ These tests verify the frontend components can be imported and basic
 functionality is properly structured.
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -23,14 +22,11 @@ def test_streamlit_app_imports():
     # Try importing dementia_simulation modules that frontend depends on
     from dementia_simulation.evaluator.empathy_evaluator import EmpathyEvaluator
     from dementia_simulation.persona.models import (
-        DementiaPersona,
         DementiaStage,
-        create_sample_personas,
     )
     from dementia_simulation.rag.pipeline import DementiaRAGPipeline
     from dementia_simulation.retriever.faiss_retriever import (
         FAISSRetriever,
-        initialize_retriever_with_knowledge_base,
     )
 
     # Verify key classes can be instantiated
@@ -67,9 +63,7 @@ def test_streamlit_app_has_required_components():
             "st.columns" in content or "left_col" in content
         ), "App should have two-panel layout"
         assert "Chat" in content, "App should have chat interface"
-        assert (
-            "Mood" in content or "mood" in content
-        ), "App should have mood tracking"
+        assert "Mood" in content or "mood" in content, "App should have mood tracking"
         assert (
             "Performance" in content or "evaluation" in content
         ), "App should have performance monitoring"

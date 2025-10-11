@@ -437,11 +437,11 @@ async def generate_response(
 ) -> RAGResponse:
     """
     Generate a persona-aware response using the RAG pipeline.
-    
+
     This is a convenience function that creates a pipeline instance and generates
     a response. For multiple calls, it's more efficient to create a pipeline
     instance once and reuse it.
-    
+
     Args:
         user_input: The user's input message
         persona: DementiaPersona object with patient information
@@ -449,10 +449,10 @@ async def generate_response(
         retriever: Optional FAISSRetriever instance
         model_name: HuggingFace model name for text generation
         use_openai: Whether to use OpenAI API
-        
+
     Returns:
         RAGResponse object containing the generated response and metadata
-        
+
     Example:
         >>> from dementia_simulation.persona.models import create_sample_personas
         >>> personas = create_sample_personas()
@@ -468,7 +468,7 @@ async def generate_response(
         model_name=model_name,
         use_openai=use_openai,
     )
-    
+
     return await pipeline.generate_response(
         user_input=user_input,
         persona=persona,

@@ -1,10 +1,8 @@
 """Unit tests for FAISS retriever."""
 
 import os
-import pytest
 
 import pytest
-
 from dementia_simulation.retriever.faiss_retriever import (
     FAISSRetriever,
     create_dementia_knowledge_base,
@@ -23,7 +21,7 @@ class TestFAISSRetriever:
         retriever = FAISSRetriever(
             model_name="all-MiniLM-L6-v2",
             index_path=index_path,
-            documents_path=docs_path
+            documents_path=docs_path,
         )
 
         assert retriever.model_name == "all-MiniLM-L6-v2"
@@ -49,8 +47,14 @@ class TestFAISSRetriever:
         retriever = FAISSRetriever()
 
         documents = [
-            {"text": "This is a test document about dementia care.", "category": "test"},
-            {"text": "Another document about patient communication.", "category": "test"}
+            {
+                "text": "This is a test document about dementia care.",
+                "category": "test",
+            },
+            {
+                "text": "Another document about patient communication.",
+                "category": "test",
+            },
         ]
 
         retriever.add_documents(documents)
@@ -72,9 +76,18 @@ class TestFAISSRetriever:
         retriever = FAISSRetriever()
 
         documents = [
-            {"text": "Information about dementia care and empathy.", "category": "care"},
-            {"text": "Validation therapy techniques for patients.", "category": "therapy"},
-            {"text": "Completely unrelated content about cooking.", "category": "other"}
+            {
+                "text": "Information about dementia care and empathy.",
+                "category": "care",
+            },
+            {
+                "text": "Validation therapy techniques for patients.",
+                "category": "therapy",
+            },
+            {
+                "text": "Completely unrelated content about cooking.",
+                "category": "other",
+            },
         ]
 
         retriever.add_documents(documents)
@@ -101,7 +114,7 @@ class TestFAISSRetriever:
 
         documents = [
             {"text": "Test document for saving", "category": "test"},
-            {"text": "Another test document", "category": "test"}
+            {"text": "Another test document", "category": "test"},
         ]
 
         retriever1.add_documents(documents)
