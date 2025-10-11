@@ -202,6 +202,10 @@ logs/
 embeddings/*.index
 embeddings/*.json
 data/sessions/*.json
+data/uploads/*
+!data/uploads/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
 .streamlit/
 
 # Model caches
