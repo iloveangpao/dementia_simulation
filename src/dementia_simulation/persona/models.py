@@ -88,6 +88,7 @@ class DementiaPersona:
         personality: Optional[PersonalityTraits] = None,
         memory_profile: Optional[MemoryProfile] = None,
         background: Optional[Dict[str, str]] = None,
+        context: Optional[str] = None,
     ):
         """
         Initialize a dementia persona.
@@ -99,6 +100,7 @@ class DementiaPersona:
             personality: Personality traits (auto-generated if None)
             memory_profile: Memory characteristics (default for stage if None)
             background: Personal background information
+            context: Current scenario context (e.g., "In emergency room after a fall")
         """
         self.name = name
         self.age = age
@@ -106,6 +108,7 @@ class DementiaPersona:
         self.memory_profile = memory_profile or self.MEMORY_PROFILES[stage]
         self.personality = personality or self._generate_personality()
         self.background = background or {}
+        self.context = context or ""
 
         # Conversation state
         self.current_mood = self.personality.baseline_mood
@@ -197,6 +200,71 @@ class DementiaPersona:
         """Determine if the persona should repeat themselves."""
         return random.random() < self.memory_profile.repetition_tendency
 
+    def get_symptoms_description(self) -> Dict[str, str]:
+        """
+        Get a description of symptoms based on dementia stage.
+
+        Returns:
+            Dictionary describing memory, orientation, emotion, insight
+        """
+        if self.stage == DementiaStage.MILD:
+            return {
+                "memory": (
+                    "Occasional memory lapses for recent events, "
+                    "may forget words or repeat questions"
+                ),
+                "orientation": (
+                    "Generally oriented to time and place, "
+                    "may occasionally be confused"
+                ),
+                "emotion": (
+                    "May become quietly frustrated or withdrawn "
+                    "when unable to remember"
+                ),
+                "insight": (
+                    "Aware of memory problems, may try to compensate "
+                    "or cover up difficulties"
+                ),
+            }
+        elif self.stage == DementiaStage.MODERATE:
+            return {
+                "memory": (
+                    "Frequently forgets recent events and repeats questions; "
+                    "significant memory loss"
+                ),
+                "orientation": (
+                    "Often disoriented to time/place, may think they're "
+                    "at home or another location"
+                ),
+                "emotion": (
+                    "Anxious in unfamiliar settings; can become agitated, "
+                    "suspicious, or accusatory if stressed"
+                ),
+                "insight": (
+                    "Lacks awareness of cognitive issues, may insist "
+                    "they're fine or become defensive"
+                ),
+            }
+        else:  # SEVERE
+            return {
+                "memory": (
+                    "Severe memory impairment; hardly remembers "
+                    "recent or even past events"
+                ),
+                "orientation": (
+                    "Severely disoriented; may not recognize familiar people "
+                    "or understand where they are"
+                ),
+                "emotion": (
+                    "Limited emotional expression; may exhibit anxiety, "
+                    "fear, or agitation without clear cause"
+                ),
+                "insight": (
+                    "No awareness of condition; communicates primarily "
+                    "through simple words or non-verbal cues"
+                ),
+            }
+
     def add_to_conversation_history(self, message: str, speaker: str):
         """
         Add a message to conversation history.
@@ -221,65 +289,82 @@ class DementiaPersona:
 
     def get_context_prompt(self) -> str:
         """
-        Generate a context prompt for the language model based on persona characteristics.
+        Generate context prompt for LLM based on persona characteristics.
 
         Returns:
             Formatted prompt describing the persona's current state
         """
-        prompt = f"""You are roleplaying as {self.name}, a {self.age}-year-old person with {self.stage.value} dementia.
+        prompt = (
+            f"You are roleplaying as {self.name}, a {self.age}-year-old "
+            f"person with {self.stage.value} dementia.\n"
+        )
 
+        if self.context:
+            prompt += f"\nCurrent Situation: {self.context}\n"
+
+        prompt += f"""
 Personality and Current State:
 - Current mood: {self.current_mood.value}
-- Memory retention: {self.memory_profile.short_term_retention_minutes} minutes for new information
+- Memory retention: {self.memory_profile.short_term_retention_minutes} min
 - Long-term memory clarity: {self.memory_profile.long_term_clarity_percent}%
 - Baseline mood: {self.personality.baseline_mood.value}
-- Social engagement level: {self.personality.social_engagement:.1f}/1.0
+- Social engagement: {self.personality.social_engagement:.1f}/1.0
 - Cooperation level: {self.personality.cooperation_level:.1f}/1.0
 
 Behavioral Guidelines for {self.stage.value} dementia:
 """
 
         if self.stage == DementiaStage.MILD:
-            prompt += """- Occasional memory lapses, especially for recent events
-- Generally able to maintain conversations
-- May repeat questions or stories occasionally
-- Mostly independent but may need gentle reminders"""
-
+            prompt += (
+                "- Occasional memory lapses, especially for recent events\n"
+                "- Generally able to maintain conversations\n"
+                "- May repeat questions or stories occasionally\n"
+                "- Mostly independent but may need gentle reminders"
+            )
         elif self.stage == DementiaStage.MODERATE:
-            prompt += """- Significant short-term memory problems
-- May confuse people, places, or times
-- Can become easily frustrated or agitated
-- Needs assistance with daily activities
-- May repeat questions frequently"""
-
+            prompt += (
+                "- Significant short-term memory problems\n"
+                "- May confuse people, places, or times\n"
+                "- Can become easily frustrated or agitated\n"
+                "- Needs assistance with daily activities\n"
+                "- May repeat questions frequently"
+            )
         else:  # SEVERE
-            prompt += """- Severe memory impairment and confusion
-- May not recognize familiar people
-- Limited vocabulary and communication
-- Requires constant supervision and care
-- May exhibit repetitive behaviors or agitation"""
+            prompt += (
+                "- Severe memory impairment and confusion\n"
+                "- May not recognize familiar people\n"
+                "- Limited vocabulary and communication\n"
+                "- Requires constant supervision and care\n"
+                "- May exhibit repetitive behaviors or agitation"
+            )
 
         if self.background:
             prompt += "\n\nPersonal Background:\n"
             for key, value in self.background.items():
                 prompt += f"- {key}: {value}\n"
 
-        prompt += f"\nRespond naturally as this person would, keeping their current mood ({self.current_mood.value}) and dementia stage in mind."
+        prompt += (
+            f"\nRespond naturally as this person would, keeping their "
+            f"current mood ({self.current_mood.value}) and dementia stage "
+            f"in mind."
+        )
 
         return prompt
 
     def to_dict(self) -> Dict:
         """Convert persona to dictionary for serialization."""
+        mp = self.memory_profile
         return {
             "name": self.name,
             "age": self.age,
             "stage": self.stage.value,
             "current_mood": self.current_mood.value,
+            "context": self.context,
             "memory_profile": {
-                "short_term_retention_minutes": self.memory_profile.short_term_retention_minutes,
-                "long_term_clarity_percent": self.memory_profile.long_term_clarity_percent,
-                "confusion_likelihood": self.memory_profile.confusion_likelihood,
-                "repetition_tendency": self.memory_profile.repetition_tendency,
+                "short_term_retention_minutes": mp.short_term_retention_minutes,
+                "long_term_clarity_percent": mp.long_term_clarity_percent,
+                "confusion_likelihood": mp.confusion_likelihood,
+                "repetition_tendency": mp.repetition_tendency,
             },
             "personality": {
                 "baseline_mood": self.personality.baseline_mood.value,

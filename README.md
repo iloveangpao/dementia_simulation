@@ -121,34 +121,50 @@ The system uses the `DementiaPersona` class which provides realistic simulation 
 - **Mood States**: Calm, Confused, Agitated, Anxious, Depressed, Content, Frustrated
 - **Memory Profiles**: Configurable short-term retention, long-term clarity, confusion likelihood
 - **Personality Traits**: Baseline mood, volatility, social engagement, cooperation level
-- **Methods**: `update_mood()`, `should_remember()`, `should_be_confused()`, `should_repeat()`, `add_to_conversation_history()`, `get_context_prompt()`
+- **Scenario Context**: Support for situational context (e.g., "In emergency room after a fall")
+- **Symptom Descriptions**: Detailed descriptions of memory, orientation, emotion, and insight symptoms for each stage
+- **Methods**: `update_mood()`, `should_remember()`, `should_be_confused()`, `should_repeat()`, `get_symptoms_description()`, `add_to_conversation_history()`, `get_context_prompt()`
 
 Example usage:
 ```python
 from dementia_simulation.persona import DementiaPersona, DementiaStage, create_sample_personas
 
-# Create a custom persona
+# Create a custom persona with scenario context
 persona = DementiaPersona(
-    name="Alice",
-    age=78,
+    name="Mr. Tan",
+    age=75,
     stage=DementiaStage.MODERATE,
     background={
-        "profession": "Retired teacher",
-        "family": "Widow, 2 adult children"
-    }
+        "profession": "Retired taxi driver",
+        "history": "History of hypertension"
+    },
+    context="In the emergency room after a fall at home. Daughter is waiting outside."
 )
 
-# Update mood based on trigger
+# Get symptom descriptions for this stage
+symptoms = persona.get_symptoms_description()
+# Returns: {"memory": "...", "orientation": "...", "emotion": "...", "insight": "..."}
+
+# Update mood based on trigger (e.g., validation, correction, unfamiliar_person)
 new_mood = persona.update_mood(trigger="validation")
 
-# Check if they should remember something
+# Check if they should remember something from X minutes ago
 remembers = persona.should_remember(minutes_ago=15)
 
-# Add to conversation history
-persona.add_to_conversation_history("How are you today?", "caregiver")
+# Check if persona should express confusion or repeat themselves
+if persona.should_be_confused():
+    # Handle confusion in response
+    pass
+if persona.should_repeat():
+    # Repeat last question
+    pass
 
-# Get context for AI generation
-context = persona.get_context_prompt()
+# Add to conversation history
+persona.add_to_conversation_history("How are you feeling?", "caregiver")
+persona.add_to_conversation_history("I'm not sure... where am I?", "patient")
+
+# Get context prompt for LLM (includes scenario context, symptoms, mood)
+system_prompt = persona.get_context_prompt()
 
 # Or use pre-configured sample personas
 personas = create_sample_personas()
