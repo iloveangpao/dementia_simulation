@@ -40,12 +40,12 @@ class EmpathyEvaluator:
         """Load patterns that indicate positive empathetic responses."""
         return [
             {
-                "pattern": r"\b(I understand|I can see|I hear you|I know this is)\b",
+                "pattern": r"\b(i understand|i can see|i hear you|i know this is)\b",
                 "category": "validation",
                 "weight": 0.8,
             },
             {
-                "pattern": r"\b(that must be|how (difficult|hard|frustrating)|I imagine)\b",
+                "pattern": r"\b(that must be|how (difficult|hard|frustrating)|i imagine)\b",
                 "category": "emotional_support",
                 "weight": 0.7,
             },
@@ -55,7 +55,7 @@ class EmpathyEvaluator:
                 "weight": 0.6,
             },
             {
-                "pattern": r"\b(take your time|no rush|it's okay|that's fine)\b",
+                "pattern": r"\b(take (your|our) time|no rush|it's okay|that's fine)\b",
                 "category": "patience",
                 "weight": 0.8,
             },
@@ -65,7 +65,7 @@ class EmpathyEvaluator:
                 "weight": 0.7,
             },
             {
-                "pattern": r"\b(you're safe|you're doing great|I'm here with you)\b",
+                "pattern": r"\b(you're safe|you're doing great|i'm here with you)\b",
                 "category": "reassurance",
                 "weight": 0.9,
             },
@@ -90,7 +90,7 @@ class EmpathyEvaluator:
                 "weight": -0.7,
             },
             {
-                "pattern": r"\b(again\?|we already|I told you|remember\?)\b",
+                "pattern": r"\b(again\?|we already|i told you|remember\?)\b",
                 "category": "impatience",
                 "weight": -0.8,
             },
