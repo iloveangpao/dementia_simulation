@@ -1,0 +1,1 @@
+"""Retriever module for FAISS-based document retrieval."""
