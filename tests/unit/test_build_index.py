@@ -1,12 +1,12 @@
 """Unit tests for build_index utility."""
 
-import os
 import json
+import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../"))
 
-from build_index import load_processed_chunks, load_knowledge_base_markdown, build_index
+from build_index import build_index, load_knowledge_base_markdown, load_processed_chunks
 
 
 class TestLoadProcessedChunks:

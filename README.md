@@ -139,6 +139,21 @@ poetry run dementia-sim streamlit
 # Opens http://localhost:8501
 ```
 
+Or run directly:
+```bash
+cd frontend
+streamlit run streamlit_app.py
+```
+
+**Features:**
+- **Two-Panel Layout**: Chat interface on left, monitoring panel on right
+- **Chat Interface**: Real-time conversation with AI-powered dementia personas
+- **Mood Tracking**: Visual display of patient's current emotional state
+- **Performance Monitoring**: Real-time empathy scores and feedback
+- **Session Stats**: Track conversation duration, message count, and progress
+- **Stage-Specific Tips**: Contextual guidance based on dementia stage
+- **Progress Charts**: Visualize improvement over multiple evaluations
+
 #### 🔗 API Server
 
 Start the FastAPI server:

@@ -1,16 +1,16 @@
 """Unit tests for RAG pipeline."""
 
-import pytest
 from unittest.mock import Mock
 
+import pytest
+from dementia_simulation.persona.models import (
+    MoodState,
+    create_sample_personas,
+)
 from dementia_simulation.rag.pipeline import (
     DementiaRAGPipeline,
     RAGResponse,
     generate_response,
-)
-from dementia_simulation.persona.models import (
-    MoodState,
-    create_sample_personas,
 )
 from dementia_simulation.retriever.faiss_retriever import FAISSRetriever
 
