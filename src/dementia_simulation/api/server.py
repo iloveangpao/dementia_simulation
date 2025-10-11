@@ -38,18 +38,25 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     """Chat request model."""
 
-    message: str = Field(..., description="User's message")
+    message: Optional[str] = Field(None, description="User's message")
+    text: Optional[str] = Field(None, description="User's text (alias for message)")
     persona_id: Optional[str] = Field(None, description="Persona ID to use")
     session_id: Optional[str] = Field(
         None, description="Session ID for conversation tracking"
     )
+
+    def get_message_text(self) -> str:
+        """Get the message text from either field."""
+        return self.message or self.text or ""
 
 
 class ChatResponse(BaseModel):
     """Chat response model."""
 
     response: str = Field(..., description="Generated response")
+    reply: Optional[str] = Field(None, description="Reply (alias for response)")
     persona_mood: str = Field(..., description="Current persona mood")
+    mood: Optional[str] = Field(None, description="Mood (alias for persona_mood)")
     confidence_score: float = Field(..., description="Response confidence")
     processing_time: float = Field(..., description="Processing time in seconds")
     model_used: str = Field(..., description="Model used for generation")
@@ -71,21 +78,48 @@ class PersonaInfo(BaseModel):
 class EvaluationRequest(BaseModel):
     """Evaluation request model."""
 
-    conversation_history: List[Dict[str, Any]] = Field(
-        ..., description="Conversation history"
+    conversation_history: Optional[List[Dict[str, Any]]] = Field(
+        None, description="Conversation history"
     )
-    caregiver_responses: List[str] = Field(
-        ..., description="Caregiver responses to evaluate"
+    caregiver_responses: Optional[List[str]] = Field(
+        None, description="Caregiver responses to evaluate"
     )
+    transcript: Optional[str] = Field(
+        None, description="Transcript text to evaluate"
+    )
+
+    def get_caregiver_responses(self) -> List[str]:
+        """Extract caregiver responses from transcript or list."""
+        if self.caregiver_responses:
+            return self.caregiver_responses
+        if self.transcript:
+            # Split transcript into sentences as caregiver responses
+            import re
+            sentences = re.split(r'[.!?]+', self.transcript)
+            return [s.strip() for s in sentences if s.strip()]
+        return []
+
+    def get_conversation_history(self) -> List[Dict[str, Any]]:
+        """Get or construct conversation history."""
+        if self.conversation_history:
+            return self.conversation_history
+        # Construct from transcript if available
+        responses = self.get_caregiver_responses()
+        return [
+            {"speaker": "caregiver", "message": msg}
+            for msg in responses
+        ]
 
 
 class EvaluationResponse(BaseModel):
     """Evaluation response model."""
 
     overall_empathy_score: float = Field(..., description="Overall empathy score")
+    overall_score: Optional[float] = Field(None, description="Overall score (alias)")
     detailed_scores: Dict[str, float] = Field(
         ..., description="Detailed evaluation scores"
     )
+    flags: Optional[Dict[str, Any]] = Field(None, description="Evaluation flags")
     feedback: List[str] = Field(..., description="Feedback and suggestions")
     strengths: List[str] = Field(..., description="Identified strengths")
     improvements: List[str] = Field(..., description="Areas for improvement")
@@ -261,10 +295,15 @@ async def chat(request: ChatRequest, state: AppState = Depends(ensure_initialize
     persona = state.personas[persona_id]
     session["current_persona"] = persona_id
 
+    # Get message text from either field
+    message_text = request.get_message_text()
+    if not message_text or not message_text.strip():
+        raise HTTPException(status_code=400, detail="Message text cannot be empty")
+
     # Generate response
     try:
         rag_response = await state.rag_pipeline.generate_response(
-            user_input=request.message,
+            user_input=message_text,
             persona=persona,
             conversation_history=session["messages"],
         )
@@ -273,7 +312,7 @@ async def chat(request: ChatRequest, state: AppState = Depends(ensure_initialize
         session["messages"].append(
             {
                 "speaker": "caregiver",
-                "message": request.message,
+                "message": message_text,
                 "timestamp": datetime.now().isoformat(),
             }
         )
@@ -288,7 +327,9 @@ async def chat(request: ChatRequest, state: AppState = Depends(ensure_initialize
 
         return ChatResponse(
             response=rag_response.response_text,
+            reply=rag_response.response_text,  # Alias
             persona_mood=rag_response.persona_mood,
+            mood=rag_response.persona_mood,  # Alias
             confidence_score=rag_response.confidence_score,
             processing_time=rag_response.processing_time,
             model_used=rag_response.model_used,
@@ -298,7 +339,7 @@ async def chat(request: ChatRequest, state: AppState = Depends(ensure_initialize
 
     except Exception as e:
         logger.error(f"Chat error: {e}")
-        raise HTTPException(status_code=500, detail="Error generating response")
+        raise HTTPException(status_code=500, detail="Error generating response") from e
 
 
 @app.post("/evaluate", response_model=EvaluationResponse)
@@ -307,24 +348,47 @@ async def evaluate_empathy(
 ):
     """
     Evaluate caregiver empathy based on conversation.
+    Accepts either conversation_history + caregiver_responses or a transcript string.
     """
     try:
+        # Get conversation data from request
+        conversation_history = request.get_conversation_history()
+        caregiver_responses = request.get_caregiver_responses()
+
+        if not caregiver_responses:
+            raise HTTPException(
+                status_code=400,
+                detail="No caregiver responses to evaluate. "
+                "Provide transcript or caregiver_responses.",
+            )
+
         evaluation = await state.evaluator.evaluate_conversation(
-            conversation_history=request.conversation_history,
-            caregiver_responses=request.caregiver_responses,
+            conversation_history=conversation_history,
+            caregiver_responses=caregiver_responses,
         )
+
+        # Create flags from detailed scores
+        flags = {
+            "low_validation": evaluation["detailed_scores"].get("validation", 0) < 0.5,
+            "low_patience": evaluation["detailed_scores"].get("patience", 0) < 0.5,
+            "needs_improvement": len(evaluation.get("improvements", [])) > 2,
+        }
 
         return EvaluationResponse(
             overall_empathy_score=evaluation["overall_score"],
+            overall_score=evaluation["overall_score"],  # Alias
             detailed_scores=evaluation["detailed_scores"],
+            flags=flags,
             feedback=evaluation["feedback"],
             strengths=evaluation["strengths"],
             improvements=evaluation["improvements"],
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Evaluation error: {e}")
-        raise HTTPException(status_code=500, detail="Error evaluating empathy")
+        raise HTTPException(status_code=500, detail="Error evaluating empathy") from e
 
 
 @app.get("/sessions/{session_id}")
