@@ -20,7 +20,14 @@
       "Difficulty remembering how to use telephone",
       "Confused about dates and events",
       "Worry about being a burden to daughter",
-      "Worried she is not 'all right' as she recognizes forgetfulness",
+      "Worried she is not 'all right' as she recognizes forgetfulness"
+    ],
+    "possible_contexts": [
+      "At home alone during the day while daughter is at work",
+      "At polyclinic for routine diabetes check-up",
+      "At memory clinic for initial assessment",
+      "At home with daughter present on weekend",
+      "Attempting to cook a meal but forgetting steps"
     ]
   },
   {
@@ -44,6 +51,13 @@
       "Doesn't recognize son and grandchildren",
       "Gets agitated when routine changes",
       "Wanders around the house at night"
+    ],
+    "possible_contexts": [
+      "At home during the day, asking repeatedly where his son is",
+      "At hospital emergency department after wandering and getting lost",
+      "At home late at night, confused and trying to leave the house",
+      "At day care center, agitated by change in routine",
+      "At clinic appointment, doesn't recognize his son who brought him"
     ]
   },
   {
@@ -67,6 +81,13 @@
       "Doesn't recognize family members",
       "Needs assistance with all daily activities",
       "Sometimes becomes agitated for unknown reasons"
+    ],
+    "possible_contexts": [
+      "At home being fed by domestic helper, occasionally resisting",
+      "In bed, restless and calling out for her late husband",
+      "In living room with family visiting, not recognizing anyone",
+      "At hospital emergency department after a seizure",
+      "At home during sundowning hours, becoming increasingly agitated"
     ]
   }
 ]

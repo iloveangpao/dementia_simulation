@@ -5,11 +5,11 @@ This module defines different dementia stages and their characteristics
 to simulate realistic interactions for caregiver training.
 """
 
-from enum import Enum
-from typing import Dict, List, Optional
+import random
 from dataclasses import dataclass
 from datetime import datetime
-import random
+from enum import Enum
+from typing import Dict, List, Optional
 
 
 class DementiaStage(Enum):
@@ -88,6 +88,7 @@ class DementiaPersona:
         personality: Optional[PersonalityTraits] = None,
         memory_profile: Optional[MemoryProfile] = None,
         background: Optional[Dict[str, str]] = None,
+        context: Optional[str] = None,
     ):
         """
         Initialize a dementia persona.
@@ -99,6 +100,7 @@ class DementiaPersona:
             personality: Personality traits (auto-generated if None)
             memory_profile: Memory characteristics (default for stage if None)
             background: Personal background information
+            context: Current scenario context (e.g., "In emergency room after a fall")
         """
         self.name = name
         self.age = age
@@ -106,6 +108,7 @@ class DementiaPersona:
         self.memory_profile = memory_profile or self.MEMORY_PROFILES[stage]
         self.personality = personality or self._generate_personality()
         self.background = background or {}
+        self.context = context or ""
 
         # Conversation state
         self.current_mood = self.personality.baseline_mood
@@ -197,7 +200,72 @@ class DementiaPersona:
         """Determine if the persona should repeat themselves."""
         return random.random() < self.memory_profile.repetition_tendency
 
-    def add_to_conversation_history(self, message: str, speaker: str):
+    def get_symptoms_description(self) -> Dict[str, str]:
+        """
+        Get a description of symptoms based on dementia stage.
+
+        Returns:
+            Dictionary describing memory, orientation, emotion, insight
+        """
+        if self.stage == DementiaStage.MILD:
+            return {
+                "memory": (
+                    "Occasional memory lapses for recent events, "
+                    "may forget words or repeat questions"
+                ),
+                "orientation": (
+                    "Generally oriented to time and place, "
+                    "may occasionally be confused"
+                ),
+                "emotion": (
+                    "May become quietly frustrated or withdrawn "
+                    "when unable to remember"
+                ),
+                "insight": (
+                    "Aware of memory problems, may try to compensate "
+                    "or cover up difficulties"
+                ),
+            }
+        elif self.stage == DementiaStage.MODERATE:
+            return {
+                "memory": (
+                    "Frequently forgets recent events and repeats questions; "
+                    "significant memory loss"
+                ),
+                "orientation": (
+                    "Often disoriented to time/place, may think they're "
+                    "at home or another location"
+                ),
+                "emotion": (
+                    "Anxious in unfamiliar settings; can become agitated, "
+                    "suspicious, or accusatory if stressed"
+                ),
+                "insight": (
+                    "Lacks awareness of cognitive issues, may insist "
+                    "they're fine or become defensive"
+                ),
+            }
+        else:  # SEVERE
+            return {
+                "memory": (
+                    "Severe memory impairment; hardly remembers "
+                    "recent or even past events"
+                ),
+                "orientation": (
+                    "Severely disoriented; may not recognize familiar people "
+                    "or understand where they are"
+                ),
+                "emotion": (
+                    "Limited emotional expression; may exhibit anxiety, "
+                    "fear, or agitation without clear cause"
+                ),
+                "insight": (
+                    "No awareness of condition; communicates primarily "
+                    "through simple words or non-verbal cues"
+                ),
+            }
+
+    def add_to_conversation_history(self, message: str, speaker: str) -> None:
         """
         Add a message to conversation history.
 
@@ -221,65 +289,82 @@ class DementiaPersona:
 
     def get_context_prompt(self) -> str:
         """
-        Generate a context prompt for the language model based on persona characteristics.
+        Generate context prompt for LLM based on persona characteristics.
 
         Returns:
             Formatted prompt describing the persona's current state
         """
-        prompt = f"""You are roleplaying as {self.name}, a {self.age}-year-old person with {self.stage.value} dementia.
+        prompt = (
+            f"You are roleplaying as {self.name}, a {self.age}-year-old "
+            f"person with {self.stage.value} dementia.\n"
+        )
 
+        if self.context:
+            prompt += f"\nCurrent Situation: {self.context}\n"
+
+        prompt += f"""
 Personality and Current State:
 - Current mood: {self.current_mood.value}
-- Memory retention: {self.memory_profile.short_term_retention_minutes} minutes for new information
+- Memory retention: {self.memory_profile.short_term_retention_minutes} min
 - Long-term memory clarity: {self.memory_profile.long_term_clarity_percent}%
 - Baseline mood: {self.personality.baseline_mood.value}
-- Social engagement level: {self.personality.social_engagement:.1f}/1.0
+- Social engagement: {self.personality.social_engagement:.1f}/1.0
 - Cooperation level: {self.personality.cooperation_level:.1f}/1.0
 
 Behavioral Guidelines for {self.stage.value} dementia:
 """
 
         if self.stage == DementiaStage.MILD:
-            prompt += """- Occasional memory lapses, especially for recent events
-- Generally able to maintain conversations
-- May repeat questions or stories occasionally
-- Mostly independent but may need gentle reminders"""
-
+            prompt += (
+                "- Occasional memory lapses, especially for recent events\n"
+                "- Generally able to maintain conversations\n"
+                "- May repeat questions or stories occasionally\n"
+                "- Mostly independent but may need gentle reminders"
+            )
         elif self.stage == DementiaStage.MODERATE:
-            prompt += """- Significant short-term memory problems
-- May confuse people, places, or times
-- Can become easily frustrated or agitated
-- Needs assistance with daily activities
-- May repeat questions frequently"""
-
+            prompt += (
+                "- Significant short-term memory problems\n"
+                "- May confuse people, places, or times\n"
+                "- Can become easily frustrated or agitated\n"
+                "- Needs assistance with daily activities\n"
+                "- May repeat questions frequently"
+            )
         else:  # SEVERE
-            prompt += """- Severe memory impairment and confusion
-- May not recognize familiar people
-- Limited vocabulary and communication
-- Requires constant supervision and care
-- May exhibit repetitive behaviors or agitation"""
+            prompt += (
+                "- Severe memory impairment and confusion\n"
+                "- May not recognize familiar people\n"
+                "- Limited vocabulary and communication\n"
+                "- Requires constant supervision and care\n"
+                "- May exhibit repetitive behaviors or agitation"
+            )
 
         if self.background:
             prompt += "\n\nPersonal Background:\n"
             for key, value in self.background.items():
                 prompt += f"- {key}: {value}\n"
 
-        prompt += f"\nRespond naturally as this person would, keeping their current mood ({self.current_mood.value}) and dementia stage in mind."
+        prompt += (
+            f"\nRespond naturally as this person would, keeping their "
+            f"current mood ({self.current_mood.value}) and dementia stage "
+            f"in mind."
+        )
 
         return prompt
 
     def to_dict(self) -> Dict:
         """Convert persona to dictionary for serialization."""
+        mp = self.memory_profile
         return {
             "name": self.name,
             "age": self.age,
             "stage": self.stage.value,
             "current_mood": self.current_mood.value,
+            "context": self.context,
             "memory_profile": {
-                "short_term_retention_minutes": self.memory_profile.short_term_retention_minutes,
-                "long_term_clarity_percent": self.memory_profile.long_term_clarity_percent,
-                "confusion_likelihood": self.memory_profile.confusion_likelihood,
-                "repetition_tendency": self.memory_profile.repetition_tendency,
+                "short_term_retention_minutes": mp.short_term_retention_minutes,
+                "long_term_clarity_percent": mp.long_term_clarity_percent,
+                "confusion_likelihood": mp.confusion_likelihood,
+                "repetition_tendency": mp.repetition_tendency,
             },
             "personality": {
                 "baseline_mood": self.personality.baseline_mood.value,
@@ -291,8 +376,152 @@ Behavioral Guidelines for {self.stage.value} dementia:
         }
 
 
+def get_persona_contexts(json_path: str) -> Dict[str, List[str]]:
+    """
+    Get all possible contexts for personas in a JSON file.
+
+    Args:
+        json_path: Path to the JSON file containing persona definitions
+
+    Returns:
+        Dictionary mapping persona names to their possible contexts
+    """
+    import json
+    from pathlib import Path
+
+    path = Path(json_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Persona file not found: {json_path}")
+
+    with open(path, "r") as f:
+        personas_data = json.load(f)
+
+    contexts = {}
+    for data in personas_data:
+        name = data.get("name", "Unknown")
+        possible_contexts = data.get("possible_contexts", [])
+        contexts[name] = possible_contexts
+
+    return contexts
+
+
+def load_personas_from_json(
+    json_path: str, context_index: Optional[int] = None
+) -> List[DementiaPersona]:
+    """
+    Load personas from a JSON file.
+
+    Args:
+        json_path: Path to the JSON file containing persona definitions
+        context_index: Optional index to select a specific context from
+                      possible_contexts array. If None, uses a random context
+                      or falls back to current_concerns.
+
+    Returns:
+        List of DementiaPersona objects
+    """
+    import json
+    from pathlib import Path
+
+    path = Path(json_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Persona file not found: {json_path}")
+
+    with open(path, "r") as f:
+        personas_data = json.load(f)
+
+    personas = []
+    for data in personas_data:
+        # Map stage string to enum
+        stage_map = {
+            "mild": DementiaStage.MILD,
+            "moderate": DementiaStage.MODERATE,
+            "severe": DementiaStage.SEVERE,
+        }
+        stage = stage_map.get(data["stage"].lower(), DementiaStage.MILD)
+
+        # Build background dict from available data
+        background = data.get("background", {}).copy()
+
+        # Add medical history to background if available
+        if "medical_history" in data:
+            med_hist = data["medical_history"]
+            if "diagnosis" in med_hist:
+                background["diagnosis"] = med_hist["diagnosis"]
+            if "medications" in med_hist:
+                background["medications"] = med_hist["medications"]
+            if "other_conditions" in med_hist:
+                background["other_conditions"] = med_hist["other_conditions"]
+
+        # Build context - prioritize possible_contexts if available
+        context = ""
+        if "possible_contexts" in data and data["possible_contexts"]:
+            possible_contexts = data["possible_contexts"]
+            if context_index is not None:
+                # Use specified context index
+                idx = context_index % len(possible_contexts)
+                context = possible_contexts[idx]
+            else:
+                # Use random context
+                context = random.choice(possible_contexts)
+        elif "current_concerns" in data and data["current_concerns"]:
+            # Fallback to current concerns
+            concerns = data["current_concerns"]
+            context = "Current concerns: " + "; ".join(concerns[:3])
+
+        persona = DementiaPersona(
+            name=data["name"],
+            age=data["age"],
+            stage=stage,
+            background=background,
+            context=context,
+        )
+
+        personas.append(persona)
+
+    return personas
+
+
 def create_sample_personas() -> List[DementiaPersona]:
-    """Create sample personas for testing and demonstration."""
+    """
+    Create sample personas for testing and demonstration.
+
+    Attempts to load from data/personas/sample_personas.json if available,
+    otherwise falls back to hardcoded personas.
+
+    Returns:
+        List of DementiaPersona objects
+    """
+    from pathlib import Path
+
+    # Try to find the JSON file relative to this module
+    current_dir = Path(__file__).parent
+    json_path = (
+        current_dir.parent.parent.parent
+        / "data"
+        / "personas"
+        / "sample_personas.json"
+    )
+
+    # Also check if running from installed package
+    if not json_path.exists():
+        # Try relative to current working directory
+        json_path = Path("data/personas/sample_personas.json")
+
+    if json_path.exists():
+        try:
+            return load_personas_from_json(str(json_path))
+        except Exception as e:
+            # Fall back to hardcoded personas if loading fails
+            import warnings
+
+            warnings.warn(
+                f"Failed to load personas from {json_path}: {e}. "
+                f"Using hardcoded personas.",
+                stacklevel=2,
+            )
+
+    # Fallback hardcoded personas
     personas = [
         DementiaPersona(
             name="Margaret",
@@ -303,6 +532,7 @@ def create_sample_personas() -> List[DementiaPersona]:
                 "family": "Widow, 2 adult children",
                 "interests": "Reading, gardening, classical music",
             },
+            context="At home, concerned about memory lapses",
         ),
         DementiaPersona(
             name="Robert",
@@ -313,6 +543,7 @@ def create_sample_personas() -> List[DementiaPersona]:
                 "family": "Married 55 years, 3 children",
                 "interests": "Woodworking, baseball, old movies",
             },
+            context="Often confused about time and place",
         ),
         DementiaPersona(
             name="Eleanor",
@@ -323,6 +554,7 @@ def create_sample_personas() -> List[DementiaPersona]:
                 "family": "Widow, 4 children, 8 grandchildren",
                 "interests": "Used to love cooking and knitting",
             },
+            context="Requires constant supervision and care",
         ),
     ]
 

@@ -38,7 +38,7 @@ dementia-sim = "dementia_simulation.cli.main:cli"
 
 [tool.poetry]
 # Explicit src/ layout mapping
-package-mode = false
+package-mode = true
 packages = [{ include = "dementia_simulation", from = "src" }]
 
 [tool.poetry.group.dev.dependencies]

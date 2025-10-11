@@ -21,15 +21,14 @@ This application provides realistic simulations of conversations with dementia p
 ```
 dementia_simulation/
 ├── src/
-│   ├── dementia_simulation/   # Core package
-│   │   ├── persona/           # Dementia personas and stages (DementiaPersona)
-│   │   ├── retriever/         # FAISS-based document retrieval
-│   │   ├── rag/               # RAG pipeline with LLaMA2/Mistral
-│   │   ├── api/               # FastAPI server
-│   │   ├── cli/               # Command-line interface
-│   │   ├── evaluator/         # Empathy evaluation system
-│   │   └── utils/             # Utilities and logging
-│   └── persona.py             # PatientPersona simulation module
+│   └── dementia_simulation/   # Core package
+│       ├── persona/           # Dementia personas and stages (DementiaPersona)
+│       ├── retriever/         # FAISS-based document retrieval
+│       ├── rag/               # RAG pipeline with LLaMA2/Mistral
+│       ├── api/               # FastAPI server
+│       ├── cli/               # Command-line interface
+│       ├── evaluator/         # Empathy evaluation system
+│       └── utils/             # Utilities and logging
 ├── data/                      # Data storage
 │   ├── knowledge_base/        # Dementia care information
 │   ├── personas/              # Persona definitions
@@ -130,54 +129,102 @@ poetry run dementia-sim server
 
 ## 🎭 Dementia Personas
 
-The system includes two persona implementations:
-
-### PatientPersona Module (`src/persona.py`)
-
-A simulation-focused persona for training purposes with:
+The system uses the `DementiaPersona` class which provides realistic simulation of dementia patients with:
 - **Dementia Stages**: Mild, Moderate, Severe
-- **Mood States**: Calm, Agitated, Withdrawn
-- **Memory Degradation**: Random key forgetting based on stage
-- **Recent Memory**: Time-based forgetting with capacity limits
-- **Methods**: `update_mood()`, `forget_recent()`, `add_memory_key()`, `get_memory_key()`
+- **Mood States**: Calm, Confused, Agitated, Anxious, Depressed, Content, Frustrated
+- **Memory Profiles**: Configurable short-term retention, long-term clarity, confusion likelihood
+- **Personality Traits**: Baseline mood, volatility, social engagement, cooperation level
+- **Scenario Context**: Support for situational context (e.g., "In emergency room after a fall")
+- **Symptom Descriptions**: Detailed descriptions of memory, orientation, emotion, and insight symptoms for each stage
+- **Methods**: `update_mood()`, `should_remember()`, `should_be_confused()`, `should_repeat()`, `get_symptoms_description()`, `add_to_conversation_history()`, `get_context_prompt()`
 
 Example usage:
 ```python
-from src.persona import PatientPersona, DementiaStage, MoodState
+from dementia_simulation.persona import DementiaPersona, DementiaStage, create_sample_personas
 
-# Create a patient with moderate dementia
-patient = PatientPersona("Alice", DementiaStage.MODERATE, MoodState.CALM)
+# Create a custom persona with scenario context
+persona = DementiaPersona(
+    name="Mr. Tan",
+    age=75,
+    stage=DementiaStage.MODERATE,
+    background={
+        "profession": "Retired taxi driver",
+        "history": "History of hypertension"
+    },
+    context="In the emergency room after a fall at home. Daughter is waiting outside."
+)
 
-# Add memory keys
-patient.add_memory_key("daughter_name", "Sarah")
+# Get symptom descriptions for this stage
+symptoms = persona.get_symptoms_description()
+# Returns: {"memory": "...", "orientation": "...", "emotion": "...", "insight": "..."}
 
-# Retrieve memory (may be forgotten randomly)
-name = patient.get_memory_key("daughter_name")
+# Update mood based on trigger (e.g., validation, correction, unfamiliar_person)
+new_mood = persona.update_mood(trigger="validation")
 
-# Update mood
-new_mood = patient.update_mood()
+# Check if they should remember something from X minutes ago
+remembers = persona.should_remember(minutes_ago=15)
 
-# Add and forget recent memories
-patient.add_recent_memory("Had breakfast")
-forgotten = patient.forget_recent()
+# Check if persona should express confusion or repeat themselves
+if persona.should_be_confused():
+    # Handle confusion in response
+    pass
+if persona.should_repeat():
+    # Repeat last question
+    pass
+
+# Add to conversation history
+persona.add_to_conversation_history("How are you feeling?", "caregiver")
+persona.add_to_conversation_history("I'm not sure... where am I?", "patient")
+
+# Get context prompt for LLM (includes scenario context, symptoms, mood)
+system_prompt = persona.get_context_prompt()
+
+# Or use pre-configured sample personas (loads from data/personas/sample_personas.json)
+personas = create_sample_personas()
+
+# Load personas from a custom JSON file with random contexts
+from dementia_simulation.persona import load_personas_from_json, get_persona_contexts
+custom_personas = load_personas_from_json("path/to/custom_personas.json")
+
+# Load personas with a specific context scenario (useful for controlled simulations)
+personas_context_0 = load_personas_from_json(
+    "data/personas/sample_personas.json",
+    context_index=0  # Uses first context for each persona
+)
+
+# Get all available contexts for each persona
+contexts = get_persona_contexts("data/personas/sample_personas.json")
+for name, context_list in contexts.items():
+    print(f"{name} has {len(context_list)} possible scenarios")
 ```
 
-### Sample Personas (DementiaPersona)
+### Sample Personas
 
-### Mild Dementia - Margaret (78 years old)
-- **Background**: Retired teacher, widow
-- **Symptoms**: Occasional memory lapses, word-finding difficulties
+The system includes pre-configured sample personas loaded from `data/personas/sample_personas.json`:
+
+#### Mild Dementia - Margaret Chua (78 years old)
+- **Background**: Homemaker, widow, lives with daughter
+- **Diagnosis**: Mild Cognitive Impairment progressing to early-stage vascular dementia
+- **Medications**: Glucosamine, Furosemide, Tolbutamide, Enalapril, multivitamins
+- **Current Concerns**: Forgetting names, difficulty with telephone, confused about dates
+- **Possible Scenarios**: At home alone, at polyclinic for check-up, at memory clinic, with daughter on weekend, attempting to cook
 - **Communication**: Generally coherent, may need gentle reminders
 
-### Moderate Dementia - Robert (82 years old) 
-- **Background**: Retired engineer, married 55 years
-- **Symptoms**: Significant memory problems, confusion about time/place
-- **Communication**: May not recognize familiar people, repetitive questions
+#### Moderate Dementia - Gopal Ramakrishnan (75 years old) 
+- **Background**: Retired police officer, divorced, lives with son
+- **Diagnosis**: Moderate-stage Alzheimer's disease
+- **Medications**: Memantine, Aricept, Metformin, Citalopram
+- **Current Concerns**: Repeats questions, doesn't recognize family, wanders at night
+- **Possible Scenarios**: At home asking for son, in emergency after wandering, late night confusion, at day care center, at clinic appointment
+- **Communication**: Often confused, may not recognize familiar people, repetitive questions
 
-### Severe Dementia - Eleanor (85 years old)
-- **Background**: Former nurse, widow
-- **Symptoms**: Severe memory impairment, limited communication
-- **Communication**: Very simple words, focuses on emotions over facts
+#### Severe Dementia - Rosmah Wati (87 years old)
+- **Background**: Retired teacher, widow, lives with daughter and helper
+- **Diagnosis**: Severe Alzheimer's disease with behavioral symptoms
+- **Medications**: Risperidone (PRN)
+- **Current Concerns**: Very limited communication, needs assistance with all activities
+- **Possible Scenarios**: Being fed at home, in bed calling for husband, with visiting family, in emergency after seizure, during sundowning hours
+- **Communication**: Very simple words or non-verbal, focuses on emotions over facts
 
 ## 📊 Empathy Evaluation
 
