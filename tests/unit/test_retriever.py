@@ -3,8 +3,6 @@
 import os
 import pytest
 
-import pytest
-
 from dementia_simulation.retriever.faiss_retriever import (
     FAISSRetriever,
     create_dementia_knowledge_base,
