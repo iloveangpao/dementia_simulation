@@ -2,12 +2,12 @@
 name = "dementia-simulation"
 version = "0.1.0"
 description = "A chatbot simulation for dementia patients to help caregivers practice empathetic communication"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["Yan Rui <mrlyrplease@example.com>"]
 readme = "README.md"
 packages = [{include = "dementia_simulation", from = "src"}]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = ">=3.9,<3.9.7 || >3.9.7,<4.0"
 fastapi = "^0.104.1"
 uvicorn = "^0.24.0"
 streamlit = "^1.28.1"
