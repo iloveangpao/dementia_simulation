@@ -10,6 +10,7 @@ labels: enhancement
 ## Acceptance Criteria
 - [ ] Tests added/passing
 - [ ] Lint (ruff) passing
+- [ ] CI passing
 - [ ] Docs/README updated if needed
 
 ## Notes

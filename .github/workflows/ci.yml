@@ -12,44 +12,79 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'pull_request' && github.head_ref || '' }}
+        # Default behavior checks out the exact commit for the event. For PR head use:
+        # with: { ref: ${{ github.event.pull_request.head.sha }} }
 
-      - name: Setup Python
+      - name: Setup Python and Poetry cache
         uses: actions/setup-python@v5
-        id: setup-python
         with:
           python-version: '3.10'
-          cache: 'poetry'
+          cache: 'poetry'  # caches based on poetry.lock
 
       - name: Install Poetry
         run: pipx install poetry
 
+      - name: Ensure Poetry uses runner Python
+        run: poetry env use $(python -c "import sys; print(sys.executable)")
+
       - name: Install dependencies
-        # This step now works because the previous one installed Poetry
         run: poetry install --with dev
 
-      # ---- Run all checks sequentially ----
-      - name: Run Ruff linter and formatter check
+      - name: Run checks and capture logs (fail correctly)
+        shell: bash
         run: |
-          poetry run ruff format --check .
-          poetry run ruff check .
+          set -euo pipefail
+          status=0
+          {
+            poetry run ruff format --check .
+            poetry run ruff check .
+            poetry run mypy src --ignore-missing-imports
+            poetry run pytest tests/unit
+          } 2>&1 | tee failure-logs.txt || status=$?
+          # re-emit the failing status so the job is marked failed
+          exit $status
 
-      - name: Run mypy type checking
-        run: poetry run mypy src --ignore-missing-imports
-
-      - name: Run unit tests with coverage
-        env:
-          DISABLE_FAISS: "1"
-        run: |
-          poetry run pytest tests/unit -q --maxfail=1 --disable-warnings \
-            --cov=src/dementia_simulation --cov-report=xml:coverage.xml
-
-      - name: Upload coverage and test metrics
-        if: always()
+      - name: Upload failure logs
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: reports
-          path: |
-            coverage.xml
-            reports/quick_metrics.json
+          name: failure-logs
+          path: failure-logs.txt
+
+  handle-failure:
+    needs: [test-and-lint]
+    if: ${{ needs.test-and-lint.result == 'failure' && github.actor != 'github-copilot[bot]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Download failure logs
+        uses: actions/download-artifact@v4
+        with:
+          name: failure-logs
+
+      - name: Create issue and trigger Copilot
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+            const logs = fs.readFileSync('./failure-logs.txt', 'utf8');
+            const titleRef = context.payload.pull_request?.head?.ref || context.ref;
+            const issue = await github.rest.issues.create({
+              owner, repo,
+              title: `CI Failure on: ${titleRef}`,
+              body: [
+                `The CI workflow failed. Please investigate and propose a fix.`,
+                `**Workflow Run:** [View Run](${runUrl})`,
+                `**Triggered by:** @${context.actor}`,
+                `---`,
+                `### 🪵 Failure Logs:\n\`\`\`\n${logs}\n\`\`\``
+              ].join('\n')
+            });
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: issue.data.number,
+              body: '@github-copilot-workspace please propose a fix for the CI failures detailed in this issue.'
+            });
