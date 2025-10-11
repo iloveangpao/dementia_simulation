@@ -102,7 +102,8 @@ def build_index(
     source: str = "auto",
     processed_dir: str = "data/processed",
     kb_dir: str = "data/knowledge_base",
-    model_name: str = "all-MiniLM-L6-v2"
+    model_name: str = "all-MiniLM-L6-v2",
+    device: str = None
 ) -> None:
     """
     Build FAISS index from documents.
@@ -113,6 +114,7 @@ def build_index(
         processed_dir: Directory containing processed chunks
         kb_dir: Directory containing knowledge base markdown files
         model_name: Sentence transformer model name
+        device: Device to use ('cpu', 'cuda', or None for auto-detect)
     """
     logger.info("=" * 60)
     logger.info("Building FAISS Index for Dementia Simulation")
@@ -129,7 +131,8 @@ def build_index(
     retriever = FAISSRetriever(
         model_name=model_name,
         index_path=index_path,
-        documents_path=documents_path
+        documents_path=documents_path,
+        device=device
     )
     
     # Load documents based on source
@@ -260,6 +263,13 @@ Examples:
         help="Sentence transformer model name (default: all-MiniLM-L6-v2)"
     )
     
+    parser.add_argument(
+        "--device",
+        choices=["cpu", "cuda", "auto"],
+        default=None,
+        help="Device to use for model (default: auto-detect)"
+    )
+    
     args = parser.parse_args()
     
     try:
@@ -268,7 +278,8 @@ Examples:
             source=args.source,
             processed_dir=args.processed_dir,
             kb_dir=args.kb_dir,
-            model_name=args.model
+            model_name=args.model,
+            device=args.device
         )
     except Exception as e:
         logger.error(f"Error building index: {e}")

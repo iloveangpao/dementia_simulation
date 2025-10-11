@@ -113,7 +113,8 @@ class TestBuildIndex:
         build_index(
             output_dir=str(output_dir),
             source="default",
-            model_name="all-MiniLM-L6-v2"
+            model_name="all-MiniLM-L6-v2",
+            device="cpu"
         )
         
         # Check that files were created
@@ -160,7 +161,8 @@ Maintain a calm demeanor and soothing voice tone.
             output_dir=str(output_dir),
             source="knowledge_base",
             kb_dir=str(kb_dir),
-            model_name="all-MiniLM-L6-v2"
+            model_name="all-MiniLM-L6-v2",
+            device="cpu"
         )
         
         # Check that files were created
@@ -187,7 +189,8 @@ Maintain a calm demeanor and soothing voice tone.
             source="auto",
             processed_dir=str(tmp_path / "nonexistent_processed"),
             kb_dir=str(tmp_path / "nonexistent_kb"),
-            model_name="all-MiniLM-L6-v2"
+            model_name="all-MiniLM-L6-v2",
+            device="cpu"
         )
         
         # Should still create files using default knowledge base
@@ -208,7 +211,8 @@ class TestIntegration:
         build_index(
             output_dir=str(output_dir),
             source="default",
-            model_name="all-MiniLM-L6-v2"
+            model_name="all-MiniLM-L6-v2",
+            device="cpu"
         )
         
         # Create retriever and load index
@@ -217,7 +221,8 @@ class TestIntegration:
         
         retriever = FAISSRetriever(
             index_path=str(index_path),
-            documents_path=str(docs_path)
+            documents_path=str(docs_path),
+            device="cpu"
         )
         
         # Load the index
