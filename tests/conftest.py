@@ -5,7 +5,11 @@ import asyncio
 import tempfile
 from unittest.mock import Mock, AsyncMock
 
-from dementia_simulation.persona.models import DementiaPersona, DementiaStage, create_sample_personas
+from dementia_simulation.persona.models import (
+    DementiaPersona,
+    DementiaStage,
+    create_sample_personas,
+)
 from dementia_simulation.retriever.faiss_retriever import FAISSRetriever
 from dementia_simulation.rag.pipeline import DementiaRAGPipeline
 from dementia_simulation.evaluator.empathy_evaluator import EmpathyEvaluator
@@ -31,7 +35,7 @@ def mild_dementia_persona():
         name="Test Margaret",
         age=78,
         stage=DementiaStage.MILD,
-        background={"profession": "Teacher", "family": "Widow"}
+        background={"profession": "Teacher", "family": "Widow"},
     )
 
 
@@ -44,7 +48,7 @@ def mock_retriever():
     ]
     retriever.get_stats.return_value = {
         "total_documents": 10,
-        "model_name": "test-model"
+        "model_name": "test-model",
     }
     return retriever
 
@@ -54,18 +58,19 @@ def mock_rag_pipeline(mock_retriever):
     """Create a mock RAG pipeline."""
     pipeline = Mock(spec=DementiaRAGPipeline)
     pipeline.retriever = mock_retriever
-    
+
     async def mock_generate_response(user_input, persona, conversation_history=None):
         from dementia_simulation.rag.pipeline import RAGResponse
+
         return RAGResponse(
             response_text="Test response",
             retrieved_documents=[],
             confidence_score=0.8,
             persona_mood=persona.current_mood.value,
             processing_time=0.1,
-            model_used="test-model"
+            model_used="test-model",
         )
-    
+
     pipeline.generate_response = AsyncMock(side_effect=mock_generate_response)
     return pipeline
 
@@ -77,19 +82,19 @@ def sample_conversation_history():
         {
             "speaker": "caregiver",
             "message": "How are you feeling today?",
-            "timestamp": "2024-01-01T10:00:00"
+            "timestamp": "2024-01-01T10:00:00",
         },
         {
-            "speaker": "patient", 
+            "speaker": "patient",
             "message": "I'm confused. Where am I?",
             "timestamp": "2024-01-01T10:00:05",
-            "mood": "confused"
+            "mood": "confused",
         },
         {
             "speaker": "caregiver",
             "message": "You're safe here with me. I understand this is confusing.",
-            "timestamp": "2024-01-01T10:00:10"
-        }
+            "timestamp": "2024-01-01T10:00:10",
+        },
     ]
 
 
