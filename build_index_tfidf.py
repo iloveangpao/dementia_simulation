@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Build FAISS Index for Dementia Simulation
+Build FAISS Index for Dementia Simulation (Offline Version)
 
-This script loads preprocessed text chunks, generates embeddings using sentence transformers,
+This script loads preprocessed text chunks, generates embeddings using TF-IDF,
 and creates a FAISS index for efficient similarity search.
 """
 
@@ -14,14 +14,13 @@ import pandas as pd
 import faiss
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
-from sentence_transformers import SentenceTransformer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from tqdm import tqdm
 
 # Configuration
 PROCESSED_DIR = "data/processed/"
 INDEX_DIR = "data/index/"
-MODEL_NAME = "all-MiniLM-L6-v2"  # Fast and efficient sentence transformer model
-BATCH_SIZE = 32  # Batch size for embedding generation
+MAX_FEATURES = 5000  # Maximum number of TF-IDF features
 
 def setup_directories():
     """Create necessary directories."""
@@ -47,35 +46,29 @@ def load_processed_chunks(chunks_file: str = None) -> List[Dict[str, Any]]:
     print(f"Loaded {len(chunks)} text chunks from {chunks_file}")
     return chunks
 
-def load_embedding_model(model_name: str = MODEL_NAME) -> SentenceTransformer:
-    """Load sentence transformer model for embedding generation."""
-    print(f"Loading sentence transformer model: {model_name}")
-    
-    try:
-        model = SentenceTransformer(model_name)
-        print(f"Model loaded successfully. Embedding dimension: {model.get_sentence_embedding_dimension()}")
-        return model
-    except Exception as e:
-        print(f"Error loading model {model_name}: {str(e)}")
-        raise
-
-def generate_embeddings(chunks: List[Dict[str, Any]], model: SentenceTransformer) -> np.ndarray:
-    """Generate embeddings for text chunks."""
+def generate_tfidf_embeddings(chunks: List[Dict[str, Any]]) -> Tuple[np.ndarray, TfidfVectorizer]:
+    """Generate TF-IDF embeddings for text chunks."""
     texts = [chunk['text'] for chunk in chunks]
     
-    print(f"Generating embeddings for {len(texts)} chunks...")
+    print(f"Generating TF-IDF embeddings for {len(texts)} chunks...")
     
-    # Generate embeddings in batches
-    embeddings = []
-    for i in tqdm(range(0, len(texts), BATCH_SIZE), desc="Generating embeddings"):
-        batch_texts = texts[i:i + BATCH_SIZE]
-        batch_embeddings = model.encode(batch_texts, convert_to_numpy=True)
-        embeddings.extend(batch_embeddings)
+    # Create TF-IDF vectorizer
+    vectorizer = TfidfVectorizer(
+        max_features=MAX_FEATURES,
+        stop_words='english',
+        ngram_range=(1, 2),  # Include unigrams and bigrams
+        min_df=1,  # Minimum document frequency
+        max_df=0.8  # Maximum document frequency
+    )
     
-    embeddings_array = np.array(embeddings).astype('float32')
-    print(f"Generated embeddings shape: {embeddings_array.shape}")
+    # Fit and transform texts
+    tfidf_matrix = vectorizer.fit_transform(texts)
+    embeddings = tfidf_matrix.toarray().astype('float32')
     
-    return embeddings_array
+    print(f"Generated TF-IDF embeddings shape: {embeddings.shape}")
+    print(f"Vocabulary size: {len(vectorizer.vocabulary_)}")
+    
+    return embeddings, vectorizer
 
 def create_faiss_index(embeddings: np.ndarray) -> faiss.Index:
     """Create FAISS index for efficient similarity search."""
@@ -101,7 +94,7 @@ def save_index_and_metadata(
     index: faiss.Index, 
     chunks: List[Dict[str, Any]], 
     embeddings: np.ndarray,
-    model_name: str
+    vectorizer: TfidfVectorizer
 ):
     """Save FAISS index and associated metadata."""
     
@@ -118,13 +111,20 @@ def save_index_and_metadata(
     embeddings_file = os.path.join(INDEX_DIR, "embeddings.npy")
     np.save(embeddings_file, embeddings)
     
+    # Save vectorizer for query processing
+    vectorizer_file = os.path.join(INDEX_DIR, "tfidf_vectorizer.pkl")
+    with open(vectorizer_file, 'wb') as f:
+        pickle.dump(vectorizer, f)
+    
     # Save index configuration
     config = {
-        "model_name": model_name,
+        "embedding_type": "tfidf",
         "embedding_dimension": embeddings.shape[1],
         "num_chunks": len(chunks),
         "index_type": "IndexFlatIP",
-        "similarity_metric": "cosine"
+        "similarity_metric": "cosine",
+        "max_features": MAX_FEATURES,
+        "vocabulary_size": len(vectorizer.vocabulary_)
     }
     
     config_file = os.path.join(INDEX_DIR, "index_config.json")
@@ -135,10 +135,11 @@ def save_index_and_metadata(
     print(f"- FAISS index: {index_file}")
     print(f"- Chunk metadata: {metadata_file}")
     print(f"- Embeddings: {embeddings_file}")
+    print(f"- TF-IDF vectorizer: {vectorizer_file}")
     print(f"- Configuration: {config_file}")
 
-def test_index(index: faiss.Index, chunks: List[Dict[str, Any]], model: SentenceTransformer):
-    """Test the created index with a sample query."""
+def test_index(index: faiss.Index, chunks: List[Dict[str, Any]], vectorizer: TfidfVectorizer):
+    """Test the created index with sample queries."""
     print("\nTesting index with sample queries...")
     
     # Sample queries
@@ -152,17 +153,18 @@ def test_index(index: faiss.Index, chunks: List[Dict[str, Any]], model: Sentence
     for query in test_queries:
         print(f"\nQuery: '{query}'")
         
-        # Generate query embedding
-        query_embedding = model.encode([query], convert_to_numpy=True).astype('float32')
+        # Generate query embedding using the same vectorizer
+        query_tfidf = vectorizer.transform([query])
+        query_embedding = query_tfidf.toarray().astype('float32')
         faiss.normalize_L2(query_embedding)
         
         # Search index
-        k = 3  # Top 3 results
+        k = min(3, len(chunks))  # Top 3 results or all chunks if fewer
         scores, indices = index.search(query_embedding, k)
         
         print("Top results:")
         for i, (score, idx) in enumerate(zip(scores[0], indices[0])):
-            if idx < len(chunks):
+            if idx < len(chunks) and idx >= 0:
                 chunk = chunks[idx]
                 print(f"  {i+1}. Score: {score:.3f}")
                 print(f"     Source: {chunk['source_file']}")
@@ -171,8 +173,8 @@ def test_index(index: faiss.Index, chunks: List[Dict[str, Any]], model: Sentence
 
 def main():
     """Main function to build the FAISS index."""
-    print("Building FAISS Index for Dementia Simulation")
-    print("=" * 50)
+    print("Building FAISS Index for Dementia Simulation (TF-IDF Version)")
+    print("=" * 60)
     
     try:
         # Setup
@@ -182,27 +184,25 @@ def main():
         chunks = load_processed_chunks()
         
         if not chunks:
-            print("No chunks found. Please run the preprocessing notebook first.")
+            print("No chunks found. Please run the preprocessing script first.")
             return
         
-        # Load embedding model
-        model = load_embedding_model()
-        
-        # Generate embeddings
-        embeddings = generate_embeddings(chunks, model)
+        # Generate TF-IDF embeddings
+        embeddings, vectorizer = generate_tfidf_embeddings(chunks)
         
         # Create FAISS index
         index = create_faiss_index(embeddings)
         
         # Save everything
-        save_index_and_metadata(index, chunks, embeddings, MODEL_NAME)
+        save_index_and_metadata(index, chunks, embeddings, vectorizer)
         
         # Test the index
-        test_index(index, chunks, model)
+        test_index(index, chunks, vectorizer)
         
-        print("\n" + "=" * 50)
+        print("\n" + "=" * 60)
         print("Index building completed successfully!")
-        print(f"Created index with {len(chunks)} text chunks")
+        print(f"Created TF-IDF index with {len(chunks)} text chunks")
+        print(f"Vocabulary size: {len(vectorizer.vocabulary_)}")
         print(f"Index saved to: {INDEX_DIR}")
         
     except Exception as e:
