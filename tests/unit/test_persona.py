@@ -26,8 +26,13 @@ class TestMoodState:
     def test_moods_exist(self):
         """Test that mood states are defined."""
         expected_moods = [
-            "calm", "confused", "agitated", "anxious",
-            "depressed", "content", "frustrated"
+            "calm",
+            "confused",
+            "agitated",
+            "anxious",
+            "depressed",
+            "content",
+            "frustrated",
         ]
         actual_moods = [mood.value for mood in MoodState]
 
@@ -44,7 +49,7 @@ class TestMemoryProfile:
             short_term_retention_minutes=30,
             long_term_clarity_percent=85,
             confusion_likelihood=0.2,
-            repetition_tendency=0.1
+            repetition_tendency=0.1,
         )
 
         assert profile.short_term_retention_minutes == 30
@@ -62,7 +67,7 @@ class TestPersonalityTraits:
             baseline_mood=MoodState.CALM,
             mood_volatility=0.3,
             social_engagement=0.8,
-            cooperation_level=0.7
+            cooperation_level=0.7,
         )
 
         assert traits.baseline_mood == MoodState.CALM
@@ -76,11 +81,7 @@ class TestDementiaPersona:
 
     def test_persona_creation_minimal(self):
         """Test creating a persona with minimal parameters."""
-        persona = DementiaPersona(
-            name="Test Person",
-            age=75,
-            stage=DementiaStage.MILD
-        )
+        persona = DementiaPersona(name="Test Person", age=75, stage=DementiaStage.MILD)
 
         assert persona.name == "Test Person"
         assert persona.age == 75
@@ -102,7 +103,7 @@ class TestDementiaPersona:
             stage=DementiaStage.MODERATE,
             personality=personality,
             memory_profile=memory_profile,
-            background=background
+            background=background,
         )
 
         assert persona.name == "Full Test"
@@ -125,7 +126,9 @@ class TestDementiaPersona:
 
         # Retention time should decrease
         assert mild.short_term_retention_minutes > moderate.short_term_retention_minutes
-        assert moderate.short_term_retention_minutes > severe.short_term_retention_minutes
+        assert (
+            moderate.short_term_retention_minutes > severe.short_term_retention_minutes
+        )
 
         # Clarity should decrease
         assert mild.long_term_clarity_percent > moderate.long_term_clarity_percent
@@ -201,10 +204,7 @@ class TestDementiaPersona:
     def test_to_dict_serialization(self):
         """Test persona serialization to dictionary."""
         persona = DementiaPersona(
-            name="Test",
-            age=75,
-            stage=DementiaStage.MILD,
-            background={"test": "value"}
+            name="Test", age=75, stage=DementiaStage.MILD, background={"test": "value"}
         )
 
         persona_dict = persona.to_dict()

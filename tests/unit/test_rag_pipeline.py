@@ -180,7 +180,10 @@ class TestDementiaRAGPipeline:
         assert 0.0 <= response.confidence_score <= 1.0
         assert response.persona_mood in [mood.value for mood in MoodState]
         assert response.processing_time >= 0
-        assert response.model_used in ["mock", "openai-gpt-3.5-turbo"] or response.model_used.startswith("microsoft/")
+        assert response.model_used in [
+            "mock",
+            "openai-gpt-3.5-turbo",
+        ] or response.model_used.startswith("microsoft/")
 
     @pytest.mark.asyncio
     async def test_generate_response_with_history(self, rag_pipeline, sample_persona):

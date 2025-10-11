@@ -1,7 +1,6 @@
 """Unit tests for empathy evaluator."""
 
 import pytest
-
 from dementia_simulation.evaluator.empathy_evaluator import EmpathyMetrics
 
 
@@ -92,7 +91,12 @@ class TestEmpathyEvaluator:
         short_metrics = empathy_evaluator.evaluate_response_patterns(short_response)
 
         # Long, complex response
-        long_response = "Well, you see, the thing is that when we consider the multifaceted nature of your current psychological and emotional state in relation to the complexities of your medical condition, we need to take into account various factors."
+        long_response = (
+            "Well, you see, the thing is that when we consider the "
+            "multifaceted nature of your current psychological and emotional "
+            "state in relation to the complexities of your medical condition, "
+            "we need to take into account various factors."
+        )
         long_metrics = empathy_evaluator.evaluate_response_patterns(long_response)
 
         # Short response should score better for clarity

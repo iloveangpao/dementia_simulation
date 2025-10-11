@@ -279,14 +279,28 @@ The system includes pre-configured sample personas loaded from `data/personas/sa
 
 ## 📊 Empathy Evaluation
 
-The system evaluates caregiver responses across multiple dimensions:
+The system includes two complementary evaluators for assessing caregiver communication:
 
+### CaregiverFeedbackEvaluator (Basic)
+Rule-based pattern matching for quick assessment:
+- **Reassurance Detection**: Identifies supportive phrases ("okay", "I understand", "take your time")
+- **Confrontation Detection**: Identifies problematic language ("no, that's wrong", "you're confused")
+- **JSON Score Output**: Returns structured scores, detected patterns, and recommendations
+- **Optional LLM Support**: Framework for secondary analysis
+- **Use Case**: Real-time feedback during interactions
+
+See [Feedback Evaluator Documentation](docs/feedback_evaluator.md) for details.
+
+### EmpathyEvaluator (Advanced)
+Comprehensive multi-dimensional assessment:
 - **Validation**: Acknowledging feelings without correction
 - **Emotional Support**: Providing comfort and reassurance  
 - **Respect & Dignity**: Maintaining the person's dignity
 - **Patience**: Handling repetition and confusion gracefully
 - **Communication Clarity**: Using clear, simple language
 - **Non-confrontational**: Avoiding arguments and corrections
+- **Conversation Flow**: Consistency, adaptability, and engagement metrics
+- **Use Case**: Post-conversation analysis and training assessment
 
 ## 🧠 Using the RAG Pipeline
 
