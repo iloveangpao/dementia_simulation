@@ -5,15 +5,18 @@ This module provides a REST API for interacting with the dementia simulation
 system, including endpoints for chat, persona management, and evaluation.
 """
 
-from fastapi import FastAPI, HTTPException, Depends
+import os
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import uvicorn
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, Field
-from typing import List, Dict, Optional, Any
-from datetime import datetime
-import uvicorn
 from loguru import logger
-import os
+from pydantic import BaseModel, Field
+
+from ..evaluator.empathy_evaluator import EmpathyEvaluator
 
 # Import local modules
 from ..persona.models import DementiaPersona, create_sample_personas
@@ -22,7 +25,6 @@ from ..retriever.faiss_retriever import (
     FAISSRetriever,
     initialize_retriever_with_knowledge_base,
 )
-from ..evaluator.empathy_evaluator import EmpathyEvaluator
 
 
 # Pydantic models for API
