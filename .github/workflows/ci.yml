@@ -15,20 +15,25 @@ jobs:
         # Default behavior checks out the exact commit for the event. For PR head use:
         # with: { ref: ${{ github.event.pull_request.head.sha }} }
 
-      - name: Setup Python and Poetry cache
+      - name: Setup Python (3.10) with Poetry cache
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'poetry'  # caches based on poetry.lock
+          cache: 'poetry'
 
       - name: Install Poetry
-        run: pipx install poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.8.3
+          virtualenvs-create: true
+          virtualenvs-in-project: true
 
-      - name: Ensure Poetry uses runner Python
-        run: poetry env use $(python -c "import sys; print(sys.executable)")
+      - name: Ensure Poetry uses the Actions Python
+        shell: bash
+        run: poetry env use "$(python -c 'import sys; print(sys.executable)')"
 
       - name: Install dependencies
-        run: poetry install --with dev
+        run: poetry install --with dev --no-interaction --no-ansi
 
       - name: Run checks and capture logs (fail correctly)
         shell: bash
