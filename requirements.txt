@@ -1,3 +1,4 @@
+requests==2.31.0
 tokenizers>=0.13.0
 langchain>=0.1.0  # For advanced RAG patterns
 fastapi==0.104.1
