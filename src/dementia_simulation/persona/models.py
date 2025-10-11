@@ -265,7 +265,7 @@ class DementiaPersona:
                 ),
             }
 
-    def add_to_conversation_history(self, message: str, speaker: str):
+    def add_to_conversation_history(self, message: str, speaker: str) -> None:
         """
         Add a message to conversation history.
 
