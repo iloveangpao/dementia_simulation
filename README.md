@@ -1,268 +1,105 @@
-# Dementia Simulation Chatbot
+# Dementia Simulation - Document Retrieval System
 
-A comprehensive simulation tool for dementia patients to help caregivers practice empathetic communication skills.
+A document retrieval system using sentence-transformers (MiniLM) and FAISS for efficient similarity search in dementia-related information.
 
-## 🎯 Purpose
+## Features
 
-This application provides realistic simulations of conversations with dementia patients at different stages (mild, moderate, severe) to help caregivers, family members, and healthcare professionals develop empathetic communication skills and learn appropriate responses to various dementia-related behaviors.
+- **Document Retrieval**: Uses sentence-transformers with MiniLM model for semantic search
+- **Efficient Search**: FAISS vector index for fast similarity search
+- **Flexible Input**: Supports text files in `data/processed/` directory
+- **Top-K Results**: Retrieve the most relevant document chunks for queries
 
-## ✨ Features
+## Installation
 
-- **🎭 Realistic Personas**: Three distinct dementia stages with unique characteristics
-- **🤖 AI-Powered Responses**: Uses RAG (Retrieval-Augmented Generation) with knowledge base
-- **📊 Empathy Evaluation**: Real-time assessment of communication empathy
-- **🌐 Multiple Interfaces**: CLI, Web API, and Streamlit UI
-- **📚 Knowledge Base**: Comprehensive dementia care information
-- **🔍 FAISS Retrieval**: Semantic search for relevant care information
-- **📝 Logging & Analytics**: Detailed conversation and performance tracking
-
-## 🏗️ Architecture
-
-```
-dementia_simulation/
-├── src/dementia_simulation/    # Core package
-│   ├── persona/               # Dementia personas and stages
-│   ├── retriever/             # FAISS-based document retrieval
-│   ├── rag/                   # RAG pipeline with LLaMA2/Mistral
-│   ├── api/                   # FastAPI server
-│   ├── cli/                   # Command-line interface
-│   ├── evaluator/             # Empathy evaluation system
-│   └── utils/                 # Utilities and logging
-├── data/                      # Data storage
-│   ├── knowledge_base/        # Dementia care information
-│   ├── personas/              # Persona definitions
-│   └── sessions/              # Conversation sessions
-├── embeddings/                # FAISS indices and embeddings
-├── frontend/                  # Streamlit web interface
-├── tests/                     # Unit and integration tests
-└── logs/                      # Application logs
-```
-
-## 🚀 Quick Start
-
-### Installation
-
-1. **Clone the repository:**
+1. Install required dependencies:
 ```bash
-git clone https://github.com/iloveangpao/dementia_simulation.git
-cd dementia_simulation
-```
-
-2. **Install dependencies:**
-```bash
-# Using Poetry (recommended)
-pip install poetry
-poetry install
-
-# Or using pip
 pip install -r requirements.txt
 ```
 
-3. **Setup environment:**
-```bash
-# Copy environment template
-cp .env.example .env
+## Usage
 
-# Edit .env with your API keys (optional)
-# OPENAI_API_KEY=your_key_here
-# HUGGINGFACE_TOKEN=your_token_here
-```
+### 1. Prepare Documents
 
-4. **Initialize the application:**
-```bash
-# Using Poetry
-poetry run dementia-sim setup
+Place your text documents (`.txt`, `.md`, `.text` files) in the `data/processed/` directory.
 
-# Or direct Python
-python -m dementia_simulation.cli.main setup
-```
+### 2. Build the Index
 
-### Usage
-
-#### 🖥️ Command Line Interface
-
-Start an interactive conversation:
-```bash
-poetry run dementia-sim chat
-```
-
-List available personas:
-```bash
-poetry run dementia-sim personas
-```
-
-Analyze a saved conversation:
-```bash
-poetry run dementia-sim analyze data/sessions/conversation_margaret_20240101_120000.json
-```
-
-#### 🌐 Web Interface
-
-Start the Streamlit web app:
-```bash
-poetry run dementia-sim streamlit
-# Opens http://localhost:8501
-```
-
-#### 🔗 API Server
-
-Start the FastAPI server:
-```bash
-poetry run dementia-sim server
-# API available at http://localhost:8000
-# Documentation at http://localhost:8000/docs
-```
-
-## 🎭 Dementia Personas
-
-### Mild Dementia - Margaret (78 years old)
-- **Background**: Retired teacher, widow
-- **Symptoms**: Occasional memory lapses, word-finding difficulties
-- **Communication**: Generally coherent, may need gentle reminders
-
-### Moderate Dementia - Robert (82 years old) 
-- **Background**: Retired engineer, married 55 years
-- **Symptoms**: Significant memory problems, confusion about time/place
-- **Communication**: May not recognize familiar people, repetitive questions
-
-### Severe Dementia - Eleanor (85 years old)
-- **Background**: Former nurse, widow
-- **Symptoms**: Severe memory impairment, limited communication
-- **Communication**: Very simple words, focuses on emotions over facts
-
-## 📊 Empathy Evaluation
-
-The system evaluates caregiver responses across multiple dimensions:
-
-- **Validation**: Acknowledging feelings without correction
-- **Emotional Support**: Providing comfort and reassurance  
-- **Respect & Dignity**: Maintaining the person's dignity
-- **Patience**: Handling repetition and confusion gracefully
-- **Communication Clarity**: Using clear, simple language
-- **Non-confrontational**: Avoiding arguments and corrections
-
-## 🛠️ Development
-
-### Running Tests
+Generate embeddings and build the FAISS index:
 
 ```bash
-# Run all tests
-poetry run pytest
-
-# Run with coverage
-poetry run pytest --cov=src --cov-report=html
-
-# Run specific test file
-poetry run pytest tests/unit/test_persona.py
+python build_index.py
 ```
 
-### Code Quality
+Options:
+- `--data-dir`: Directory containing documents (default: `data/processed`)
+- `--embeddings-dir`: Directory to save index (default: `embeddings`)
+- `--model-name`: Sentence transformer model (default: `all-MiniLM-L6-v2`)
+- `--chunk-size`: Maximum characters per chunk (default: 500)
+- `--overlap`: Character overlap between chunks (default: 50)
 
+### 3. Use the Retriever
+
+#### Interactive Example
 ```bash
-# Format code
-poetry run black src/ tests/
-
-# Sort imports
-poetry run isort src/ tests/
-
-# Lint code
-poetry run flake8 src/ tests/
-
-# Type checking
-poetry run mypy src/
+python example_usage.py
 ```
 
-### Adding New Personas
+#### Programmatic Usage
+```python
+from src.retriever import Retriever
 
-1. Create persona in `data/personas/`
-2. Update `persona/models.py` if needed
-3. Add to knowledge base in `data/knowledge_base/`
-4. Test with unit tests
+# Initialize retriever
+retriever = Retriever(embeddings_dir="embeddings")
 
-## 🔧 Configuration
+# Load the index
+if retriever.load_index():
+    # Search for relevant documents
+    results = retriever.retrieve("What is dementia?", top_k=5)
+    
+    for document, score in results:
+        print(f"Score: {score:.4f}")
+        print(f"Text: {document}")
+        print("-" * 40)
+```
 
-### Environment Variables
+### 4. Testing
 
+Run the test script with mock data:
 ```bash
-# API Keys (optional)
-OPENAI_API_KEY=your_openai_key
-HUGGINGFACE_TOKEN=your_hf_token
-
-# Model Configuration
-DEFAULT_MODEL=microsoft/DialoGPT-medium
-EMBEDDING_MODEL=all-MiniLM-L6-v2
-
-# Server Configuration
-API_HOST=localhost
-API_PORT=8000
-LOG_LEVEL=INFO
-
-# Data Paths
-FAISS_INDEX_PATH=embeddings/faiss_index
-KNOWLEDGE_BASE_PATH=data/knowledge_base
+python test_retriever.py
 ```
 
-### Models
+## Project Structure
 
-The system supports multiple language models:
-
-- **Local Models**: Uses HuggingFace transformers (DialoGPT, Mistral, LLaMA2)
-- **OpenAI API**: GPT-3.5-turbo, GPT-4 (requires API key)
-- **Mock Mode**: Fallback responses for testing without models
-
-## 📚 API Reference
-
-### Chat Endpoint
-
-```bash
-curl -X POST "http://localhost:8000/chat" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "How are you feeling today?",
-    "persona_id": "persona_1",
-    "session_id": "my_session"
-  }'
+```
+dementia_simulation/
+├── src/
+│   └── retriever.py          # Main Retriever class
+├── data/
+│   └── processed/            # Input documents
+├── embeddings/               # Generated FAISS index and metadata
+├── build_index.py           # Index building utility
+├── example_usage.py         # Usage example
+├── test_retriever.py        # Test script with mock data
+└── requirements.txt         # Dependencies
 ```
 
-### Evaluation Endpoint
+## Files Description
 
-```bash
-curl -X POST "http://localhost:8000/evaluate" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "conversation_history": [...],
-    "caregiver_responses": ["How are you feeling?", "I understand..."]
-  }'
-```
+- **`src/retriever.py`**: Main Retriever class with FAISS and sentence-transformers integration
+- **`build_index.py`**: Utility to create FAISS index from documents
+- **`example_usage.py`**: Interactive example demonstrating the retriever
+- **`test_retriever.py`**: Test script that works with mock data (useful for testing without internet)
 
-## 🤝 Contributing
+## Dependencies
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Add tests for new functionality
-5. Run the test suite (`poetry run pytest`)
-6. Commit your changes (`git commit -m 'Add amazing feature'`)
-7. Push to the branch (`git push origin feature/amazing-feature`)
-8. Open a Pull Request
+- `sentence-transformers`: For generating document embeddings
+- `faiss-cpu`: For efficient vector similarity search
+- `numpy`: For numerical operations
 
-## 📄 License
+## Notes
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Built with [FastAPI](https://fastapi.tiangolo.com/), [Streamlit](https://streamlit.io/), and [HuggingFace Transformers](https://huggingface.co/transformers/)
-- Dementia care guidelines based on clinical best practices
-- FAISS for efficient similarity search
-- Thanks to the dementia care community for feedback and insights
-
-## 📞 Support
-
-- 📧 Email: support@dementiasimulation.com
-- 💬 GitHub Issues: [Create an issue](https://github.com/iloveangpao/dementia_simulation/issues)
-- 📖 Documentation: [Wiki](https://github.com/iloveangpao/dementia_simulation/wiki)
-
----
-
-**⚠️ Disclaimer**: This is a training simulation tool and should not replace professional medical advice or training. Always consult healthcare professionals for actual dementia care guidance.
+- The system chunks documents into smaller pieces for better retrieval accuracy
+- Uses cosine similarity for document matching
+- Requires internet connection to download the sentence-transformer model on first use
+- Once the model is cached locally, no internet connection is needed for operation
