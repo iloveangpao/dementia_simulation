@@ -77,6 +77,19 @@ poetry run dementia-sim setup
 python -m dementia_simulation.cli.main setup
 ```
 
+5. **Build the FAISS index (optional):**
+```bash
+# Build index from knowledge base (auto-detect source)
+python build_index.py
+
+# Build from specific source
+python build_index.py --source knowledge_base
+python build_index.py --source default
+
+# Specify custom directories
+python build_index.py --output-dir embeddings --kb-dir data/knowledge_base
+```
+
 ### Usage
 
 #### 🖥️ Command Line Interface
@@ -172,12 +185,48 @@ poetry run flake8 src/ tests/
 poetry run mypy src/
 ```
 
+### Building FAISS Index
+
+The `build_index.py` utility creates embeddings from your knowledge base:
+
+```bash
+# Auto-detect source (tries processed chunks, then knowledge base, then default)
+python build_index.py
+
+# Build from knowledge base markdown files
+python build_index.py --source knowledge_base --kb-dir data/knowledge_base
+
+# Build from preprocessed chunks
+python build_index.py --source processed --processed-dir data/processed
+
+# Use built-in default knowledge base
+python build_index.py --source default
+
+# Specify output directory
+python build_index.py --output-dir embeddings
+
+# Use different embedding model
+python build_index.py --model all-mpnet-base-v2
+```
+
+**Options:**
+- `--source`: Document source (`auto`, `processed`, `knowledge_base`, `default`)
+- `--output-dir`: Directory to save index (default: `embeddings`)
+- `--processed-dir`: Location of processed chunks (default: `data/processed`)
+- `--kb-dir`: Location of knowledge base files (default: `data/knowledge_base`)
+- `--model`: Sentence-transformer model (default: `all-MiniLM-L6-v2`)
+
+The utility creates:
+- `embeddings/faiss_index.index`: FAISS vector index
+- `embeddings/documents.json`: Document metadata
+
 ### Adding New Personas
 
 1. Create persona in `data/personas/`
 2. Update `persona/models.py` if needed
 3. Add to knowledge base in `data/knowledge_base/`
-4. Test with unit tests
+4. Rebuild the FAISS index with `python build_index.py`
+5. Test with unit tests
 
 ## 🔧 Configuration
 
