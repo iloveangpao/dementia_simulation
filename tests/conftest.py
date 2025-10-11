@@ -1,18 +1,19 @@
 """Unit tests configuration and fixtures."""
 
-import pytest
 import asyncio
 import tempfile
-from unittest.mock import Mock, AsyncMock
+from unittest.mock import AsyncMock, Mock
 
+import pytest
+
+from dementia_simulation.evaluator.empathy_evaluator import EmpathyEvaluator
 from dementia_simulation.persona.models import (
     DementiaPersona,
     DementiaStage,
     create_sample_personas,
 )
-from dementia_simulation.retriever.faiss_retriever import FAISSRetriever
 from dementia_simulation.rag.pipeline import DementiaRAGPipeline
-from dementia_simulation.evaluator.empathy_evaluator import EmpathyEvaluator
+from dementia_simulation.retriever.faiss_retriever import FAISSRetriever
 
 
 @pytest.fixture

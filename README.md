@@ -21,15 +21,14 @@ This application provides realistic simulations of conversations with dementia p
 ```
 dementia_simulation/
 ├── src/
-│   ├── dementia_simulation/   # Core package
-│   │   ├── persona/           # Dementia personas and stages (DementiaPersona)
-│   │   ├── retriever/         # FAISS-based document retrieval
-│   │   ├── rag/               # RAG pipeline with LLaMA2/Mistral
-│   │   ├── api/               # FastAPI server
-│   │   ├── cli/               # Command-line interface
-│   │   ├── evaluator/         # Empathy evaluation system
-│   │   └── utils/             # Utilities and logging
-│   └── persona.py             # PatientPersona simulation module
+│   └── dementia_simulation/   # Core package
+│       ├── persona/           # Dementia personas and stages (DementiaPersona)
+│       ├── retriever/         # FAISS-based document retrieval
+│       ├── rag/               # RAG pipeline with LLaMA2/Mistral
+│       ├── api/               # FastAPI server
+│       ├── cli/               # Command-line interface
+│       ├── evaluator/         # Empathy evaluation system
+│       └── utils/             # Utilities and logging
 ├── data/                      # Data storage
 │   ├── knowledge_base/        # Dementia care information
 │   ├── personas/              # Persona definitions
@@ -79,6 +78,19 @@ poetry run dementia-sim setup
 python -m dementia_simulation.cli.main setup
 ```
 
+5. **Build the FAISS index (optional):**
+```bash
+# Build index from knowledge base (auto-detect source)
+python build_index.py
+
+# Build from specific source
+python build_index.py --source knowledge_base
+python build_index.py --source default
+
+# Specify custom directories
+python build_index.py --output-dir embeddings --kb-dir data/knowledge_base
+```
+
 ### Usage
 
 #### 🖥️ Command Line Interface
@@ -117,54 +129,102 @@ poetry run dementia-sim server
 
 ## 🎭 Dementia Personas
 
-The system includes two persona implementations:
-
-### PatientPersona Module (`src/persona.py`)
-
-A simulation-focused persona for training purposes with:
+The system uses the `DementiaPersona` class which provides realistic simulation of dementia patients with:
 - **Dementia Stages**: Mild, Moderate, Severe
-- **Mood States**: Calm, Agitated, Withdrawn
-- **Memory Degradation**: Random key forgetting based on stage
-- **Recent Memory**: Time-based forgetting with capacity limits
-- **Methods**: `update_mood()`, `forget_recent()`, `add_memory_key()`, `get_memory_key()`
+- **Mood States**: Calm, Confused, Agitated, Anxious, Depressed, Content, Frustrated
+- **Memory Profiles**: Configurable short-term retention, long-term clarity, confusion likelihood
+- **Personality Traits**: Baseline mood, volatility, social engagement, cooperation level
+- **Scenario Context**: Support for situational context (e.g., "In emergency room after a fall")
+- **Symptom Descriptions**: Detailed descriptions of memory, orientation, emotion, and insight symptoms for each stage
+- **Methods**: `update_mood()`, `should_remember()`, `should_be_confused()`, `should_repeat()`, `get_symptoms_description()`, `add_to_conversation_history()`, `get_context_prompt()`
 
 Example usage:
 ```python
-from src.persona import PatientPersona, DementiaStage, MoodState
+from dementia_simulation.persona import DementiaPersona, DementiaStage, create_sample_personas
 
-# Create a patient with moderate dementia
-patient = PatientPersona("Alice", DementiaStage.MODERATE, MoodState.CALM)
+# Create a custom persona with scenario context
+persona = DementiaPersona(
+    name="Mr. Tan",
+    age=75,
+    stage=DementiaStage.MODERATE,
+    background={
+        "profession": "Retired taxi driver",
+        "history": "History of hypertension"
+    },
+    context="In the emergency room after a fall at home. Daughter is waiting outside."
+)
 
-# Add memory keys
-patient.add_memory_key("daughter_name", "Sarah")
+# Get symptom descriptions for this stage
+symptoms = persona.get_symptoms_description()
+# Returns: {"memory": "...", "orientation": "...", "emotion": "...", "insight": "..."}
 
-# Retrieve memory (may be forgotten randomly)
-name = patient.get_memory_key("daughter_name")
+# Update mood based on trigger (e.g., validation, correction, unfamiliar_person)
+new_mood = persona.update_mood(trigger="validation")
 
-# Update mood
-new_mood = patient.update_mood()
+# Check if they should remember something from X minutes ago
+remembers = persona.should_remember(minutes_ago=15)
 
-# Add and forget recent memories
-patient.add_recent_memory("Had breakfast")
-forgotten = patient.forget_recent()
+# Check if persona should express confusion or repeat themselves
+if persona.should_be_confused():
+    # Handle confusion in response
+    pass
+if persona.should_repeat():
+    # Repeat last question
+    pass
+
+# Add to conversation history
+persona.add_to_conversation_history("How are you feeling?", "caregiver")
+persona.add_to_conversation_history("I'm not sure... where am I?", "patient")
+
+# Get context prompt for LLM (includes scenario context, symptoms, mood)
+system_prompt = persona.get_context_prompt()
+
+# Or use pre-configured sample personas (loads from data/personas/sample_personas.json)
+personas = create_sample_personas()
+
+# Load personas from a custom JSON file with random contexts
+from dementia_simulation.persona import load_personas_from_json, get_persona_contexts
+custom_personas = load_personas_from_json("path/to/custom_personas.json")
+
+# Load personas with a specific context scenario (useful for controlled simulations)
+personas_context_0 = load_personas_from_json(
+    "data/personas/sample_personas.json",
+    context_index=0  # Uses first context for each persona
+)
+
+# Get all available contexts for each persona
+contexts = get_persona_contexts("data/personas/sample_personas.json")
+for name, context_list in contexts.items():
+    print(f"{name} has {len(context_list)} possible scenarios")
 ```
 
-### Sample Personas (DementiaPersona)
+### Sample Personas
 
-### Mild Dementia - Margaret (78 years old)
-- **Background**: Retired teacher, widow
-- **Symptoms**: Occasional memory lapses, word-finding difficulties
+The system includes pre-configured sample personas loaded from `data/personas/sample_personas.json`:
+
+#### Mild Dementia - Margaret Chua (78 years old)
+- **Background**: Homemaker, widow, lives with daughter
+- **Diagnosis**: Mild Cognitive Impairment progressing to early-stage vascular dementia
+- **Medications**: Glucosamine, Furosemide, Tolbutamide, Enalapril, multivitamins
+- **Current Concerns**: Forgetting names, difficulty with telephone, confused about dates
+- **Possible Scenarios**: At home alone, at polyclinic for check-up, at memory clinic, with daughter on weekend, attempting to cook
 - **Communication**: Generally coherent, may need gentle reminders
 
-### Moderate Dementia - Robert (82 years old) 
-- **Background**: Retired engineer, married 55 years
-- **Symptoms**: Significant memory problems, confusion about time/place
-- **Communication**: May not recognize familiar people, repetitive questions
+#### Moderate Dementia - Gopal Ramakrishnan (75 years old) 
+- **Background**: Retired police officer, divorced, lives with son
+- **Diagnosis**: Moderate-stage Alzheimer's disease
+- **Medications**: Memantine, Aricept, Metformin, Citalopram
+- **Current Concerns**: Repeats questions, doesn't recognize family, wanders at night
+- **Possible Scenarios**: At home asking for son, in emergency after wandering, late night confusion, at day care center, at clinic appointment
+- **Communication**: Often confused, may not recognize familiar people, repetitive questions
 
-### Severe Dementia - Eleanor (85 years old)
-- **Background**: Former nurse, widow
-- **Symptoms**: Severe memory impairment, limited communication
-- **Communication**: Very simple words, focuses on emotions over facts
+#### Severe Dementia - Rosmah Wati (87 years old)
+- **Background**: Retired teacher, widow, lives with daughter and helper
+- **Diagnosis**: Severe Alzheimer's disease with behavioral symptoms
+- **Medications**: Risperidone (PRN)
+- **Current Concerns**: Very limited communication, needs assistance with all activities
+- **Possible Scenarios**: Being fed at home, in bed calling for husband, with visiting family, in emergency after seizure, during sundowning hours
+- **Communication**: Very simple words or non-verbal, focuses on emotions over facts
 
 ## 📊 Empathy Evaluation
 
@@ -176,6 +236,74 @@ The system evaluates caregiver responses across multiple dimensions:
 - **Patience**: Handling repetition and confusion gracefully
 - **Communication Clarity**: Using clear, simple language
 - **Non-confrontational**: Avoiding arguments and corrections
+
+## 🧠 Using the RAG Pipeline
+
+The RAG (Retrieval-Augmented Generation) pipeline can be used programmatically in your own code:
+
+### Basic Usage
+
+```python
+import asyncio
+from dementia_simulation.rag import generate_response
+from dementia_simulation.persona.models import create_sample_personas
+
+async def main():
+    # Create a persona
+    personas = create_sample_personas()
+    persona = personas[0]  # Mild dementia - Margaret
+    
+    # Generate a response
+    response = await generate_response(
+        user_input="How are you feeling today?",
+        persona=persona
+    )
+    
+    print(f"Patient: {response.response_text}")
+    print(f"Mood: {response.persona_mood}")
+    print(f"Confidence: {response.confidence_score:.2f}")
+
+asyncio.run(main())
+```
+
+### Advanced Usage with Custom Pipeline
+
+```python
+from dementia_simulation.rag import DementiaRAGPipeline
+from dementia_simulation.retriever.faiss_retriever import FAISSRetriever
+
+# Initialize with custom settings
+retriever = FAISSRetriever()
+pipeline = DementiaRAGPipeline(
+    retriever=retriever,
+    model_name="microsoft/DialoGPT-medium",
+    use_openai=False,
+    temperature=0.7
+)
+
+# Generate response with conversation history
+conversation_history = [
+    {"speaker": "caregiver", "message": "Good morning!"},
+    {"speaker": "patient", "message": "Good morning dear."}
+]
+
+response = await pipeline.generate_response(
+    user_input="Would you like some breakfast?",
+    persona=persona,
+    conversation_history=conversation_history
+)
+```
+
+### Response Object
+
+The `generate_response` function returns a `RAGResponse` object with:
+
+- `response_text`: The generated patient reply
+- `retrieved_documents`: List of relevant knowledge base documents
+- `confidence_score`: Confidence in the response (0.0-1.0)
+- `persona_mood`: Current mood state of the persona
+- `processing_time`: Time taken to generate response (seconds)
+- `model_used`: Name of the language model used
 
 ## 🛠️ Development
 
@@ -206,12 +334,48 @@ ruff check --fix src/ tests/
 poetry run mypy src/
 ```
 
+### Building FAISS Index
+
+The `build_index.py` utility creates embeddings from your knowledge base:
+
+```bash
+# Auto-detect source (tries processed chunks, then knowledge base, then default)
+python build_index.py
+
+# Build from knowledge base markdown files
+python build_index.py --source knowledge_base --kb-dir data/knowledge_base
+
+# Build from preprocessed chunks
+python build_index.py --source processed --processed-dir data/processed
+
+# Use built-in default knowledge base
+python build_index.py --source default
+
+# Specify output directory
+python build_index.py --output-dir embeddings
+
+# Use different embedding model
+python build_index.py --model all-mpnet-base-v2
+```
+
+**Options:**
+- `--source`: Document source (`auto`, `processed`, `knowledge_base`, `default`)
+- `--output-dir`: Directory to save index (default: `embeddings`)
+- `--processed-dir`: Location of processed chunks (default: `data/processed`)
+- `--kb-dir`: Location of knowledge base files (default: `data/knowledge_base`)
+- `--model`: Sentence-transformer model (default: `all-MiniLM-L6-v2`)
+
+The utility creates:
+- `embeddings/faiss_index.index`: FAISS vector index
+- `embeddings/documents.json`: Document metadata
+
 ### Adding New Personas
 
 1. Create persona in `data/personas/`
 2. Update `persona/models.py` if needed
 3. Add to knowledge base in `data/knowledge_base/`
-4. Test with unit tests
+4. Rebuild the FAISS index with `python build_index.py`
+5. Test with unit tests
 
 ## 🔧 Configuration
 
