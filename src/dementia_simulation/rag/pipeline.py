@@ -5,20 +5,22 @@ This module combines document retrieval with language model generation
 to create contextually informed responses for dementia patient simulation.
 """
 
-from typing import List, Dict, Optional
-from dataclasses import dataclass
 import asyncio
-from loguru import logger
 import os
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Dict, List, Optional
+
+from loguru import logger
+
+from ..persona.models import DementiaPersona, DementiaStage, MoodState
 
 # Import local modules
 from ..retriever.faiss_retriever import FAISSRetriever
-from ..persona.models import DementiaPersona, DementiaStage, MoodState
 
 try:
-    from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
     import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
     HF_AVAILABLE = True
 except ImportError:
@@ -424,8 +426,9 @@ class DementiaRAGPipeline:
 if __name__ == "__main__":
     # Example usage
     import asyncio
-    from ..retriever.faiss_retriever import initialize_retriever_with_knowledge_base
+
     from ..persona.models import create_sample_personas
+    from ..retriever.faiss_retriever import initialize_retriever_with_knowledge_base
 
     async def test_rag():
         # Initialize components

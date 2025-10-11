@@ -5,13 +5,16 @@ This module provides a CLI for interacting with dementia personas,
 managing conversations, and evaluating caregiver empathy.
 """
 
-import click
 import asyncio
 import json
 import os
-from datetime import datetime
-from typing import Optional, List, Dict
 import sys
+from datetime import datetime
+from typing import Dict, List, Optional
+
+import click
+
+from ..evaluator.empathy_evaluator import EmpathyEvaluator
 
 # Import local modules
 from ..persona.models import DementiaPersona, DementiaStage, create_sample_personas
@@ -20,7 +23,6 @@ from ..retriever.faiss_retriever import (
     FAISSRetriever,
     initialize_retriever_with_knowledge_base,
 )
-from ..evaluator.empathy_evaluator import EmpathyEvaluator
 
 
 class CLISession:

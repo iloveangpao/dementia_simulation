@@ -21,15 +21,14 @@ This application provides realistic simulations of conversations with dementia p
 ```
 dementia_simulation/
 ├── src/
-│   ├── dementia_simulation/   # Core package
-│   │   ├── persona/           # Dementia personas and stages (DementiaPersona)
-│   │   ├── retriever/         # FAISS-based document retrieval
-│   │   ├── rag/               # RAG pipeline with LLaMA2/Mistral
-│   │   ├── api/               # FastAPI server
-│   │   ├── cli/               # Command-line interface
-│   │   ├── evaluator/         # Empathy evaluation system
-│   │   └── utils/             # Utilities and logging
-│   └── persona.py             # PatientPersona simulation module
+│   └── dementia_simulation/   # Core package
+│       ├── persona/           # Dementia personas and stages (DementiaPersona)
+│       ├── retriever/         # FAISS-based document retrieval
+│       ├── rag/               # RAG pipeline with LLaMA2/Mistral
+│       ├── api/               # FastAPI server
+│       ├── cli/               # Command-line interface
+│       ├── evaluator/         # Empathy evaluation system
+│       └── utils/             # Utilities and logging
 ├── data/                      # Data storage
 │   ├── knowledge_base/        # Dementia care information
 │   ├── personas/              # Persona definitions
@@ -117,39 +116,45 @@ poetry run dementia-sim server
 
 ## 🎭 Dementia Personas
 
-The system includes two persona implementations:
-
-### PatientPersona Module (`src/persona.py`)
-
-A simulation-focused persona for training purposes with:
+The system uses the `DementiaPersona` class which provides realistic simulation of dementia patients with:
 - **Dementia Stages**: Mild, Moderate, Severe
-- **Mood States**: Calm, Agitated, Withdrawn
-- **Memory Degradation**: Random key forgetting based on stage
-- **Recent Memory**: Time-based forgetting with capacity limits
-- **Methods**: `update_mood()`, `forget_recent()`, `add_memory_key()`, `get_memory_key()`
+- **Mood States**: Calm, Confused, Agitated, Anxious, Depressed, Content, Frustrated
+- **Memory Profiles**: Configurable short-term retention, long-term clarity, confusion likelihood
+- **Personality Traits**: Baseline mood, volatility, social engagement, cooperation level
+- **Methods**: `update_mood()`, `should_remember()`, `should_be_confused()`, `should_repeat()`, `add_to_conversation_history()`, `get_context_prompt()`
 
 Example usage:
 ```python
-from src.persona import PatientPersona, DementiaStage, MoodState
+from dementia_simulation.persona import DementiaPersona, DementiaStage, create_sample_personas
 
-# Create a patient with moderate dementia
-patient = PatientPersona("Alice", DementiaStage.MODERATE, MoodState.CALM)
+# Create a custom persona
+persona = DementiaPersona(
+    name="Alice",
+    age=78,
+    stage=DementiaStage.MODERATE,
+    background={
+        "profession": "Retired teacher",
+        "family": "Widow, 2 adult children"
+    }
+)
 
-# Add memory keys
-patient.add_memory_key("daughter_name", "Sarah")
+# Update mood based on trigger
+new_mood = persona.update_mood(trigger="validation")
 
-# Retrieve memory (may be forgotten randomly)
-name = patient.get_memory_key("daughter_name")
+# Check if they should remember something
+remembers = persona.should_remember(minutes_ago=15)
 
-# Update mood
-new_mood = patient.update_mood()
+# Add to conversation history
+persona.add_to_conversation_history("How are you today?", "caregiver")
 
-# Add and forget recent memories
-patient.add_recent_memory("Had breakfast")
-forgotten = patient.forget_recent()
+# Get context for AI generation
+context = persona.get_context_prompt()
+
+# Or use pre-configured sample personas
+personas = create_sample_personas()
 ```
 
-### Sample Personas (DementiaPersona)
+### Sample Personas
 
 ### Mild Dementia - Margaret (78 years old)
 - **Background**: Retired teacher, widow

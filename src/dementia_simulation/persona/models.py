@@ -5,11 +5,11 @@ This module defines different dementia stages and their characteristics
 to simulate realistic interactions for caregiver training.
 """
 
-from enum import Enum
-from typing import Dict, List, Optional
+import random
 from dataclasses import dataclass
 from datetime import datetime
-import random
+from enum import Enum
+from typing import Dict, List, Optional
 
 
 class DementiaStage(Enum):

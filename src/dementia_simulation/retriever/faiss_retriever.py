@@ -5,13 +5,14 @@ This module provides functionality to embed and retrieve relevant documents
 for the RAG pipeline, specifically tailored for dementia care knowledge.
 """
 
-import os
-from typing import List, Dict, Tuple, Optional
-import numpy as np
-import faiss
-from sentence_transformers import SentenceTransformer
-from loguru import logger
 import json
+import os
+from typing import Dict, List, Optional, Tuple
+
+import faiss
+import numpy as np
+from loguru import logger
+from sentence_transformers import SentenceTransformer
 
 
 class FAISSRetriever:
