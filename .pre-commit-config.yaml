@@ -9,3 +9,21 @@ repos:
     hooks:
       - id: end-of-file-fixer
       - id: trailing-whitespace
+  - repo: local
+    hooks:
+      - id: poetry-sync
+        name: poetry-sync
+        stages: [commit]
+        language: system
+        entry: |
+          bash -c '
+          # Update lock file based on pyproject.toml changes
+          poetry lock &&
+
+          # Export requirements from the updated lock file
+          poetry export -f requirements.txt --output requirements.txt --without-hashes &&
+          poetry export -f requirements.txt --output requirements-dev.txt --with dev --without-hashes &&
+
+          # Add all generated/updated files to the commit
+          git add poetry.lock requirements.txt requirements-dev.txt'
+        files: '^pyproject\.toml$'
