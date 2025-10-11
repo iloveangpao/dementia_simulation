@@ -45,7 +45,9 @@ jobs:
         run: poetry env use "$(python -c 'import sys; print(sys.executable)')"
 
       - name: Install deps
-        run: poetry install --with dev
+        run: |
+          poetry lock
+          poetry install --with dev
 
       - name: Run checks and capture logs (fail correctly)
         shell: bash
