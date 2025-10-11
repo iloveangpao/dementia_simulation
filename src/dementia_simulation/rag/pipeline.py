@@ -173,7 +173,7 @@ class DementiaRAGPipeline:
 
         # Filter by relevance to persona's stage
         filtered_results = []
-        for doc, score in results:
+        for doc, _score in results:
             if persona.stage.value in doc.get("severity", [persona.stage.value]):
                 filtered_results.append(doc)
 
