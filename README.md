@@ -167,6 +167,40 @@ chat.reset_conversation()
 
 ## 🎭 Dementia Personas
 
+The system includes two persona implementations:
+
+### PatientPersona Module (`src/persona.py`)
+
+A simulation-focused persona for training purposes with:
+- **Dementia Stages**: Mild, Moderate, Severe
+- **Mood States**: Calm, Agitated, Withdrawn
+- **Memory Degradation**: Random key forgetting based on stage
+- **Recent Memory**: Time-based forgetting with capacity limits
+- **Methods**: `update_mood()`, `forget_recent()`, `add_memory_key()`, `get_memory_key()`
+
+Example usage:
+```python
+from src.persona import PatientPersona, DementiaStage, MoodState
+
+# Create a patient with moderate dementia
+patient = PatientPersona("Alice", DementiaStage.MODERATE, MoodState.CALM)
+
+# Add memory keys
+patient.add_memory_key("daughter_name", "Sarah")
+
+# Retrieve memory (may be forgotten randomly)
+name = patient.get_memory_key("daughter_name")
+
+# Update mood
+new_mood = patient.update_mood()
+
+# Add and forget recent memories
+patient.add_recent_memory("Had breakfast")
+forgotten = patient.forget_recent()
+```
+
+### Sample Personas (DementiaPersona)
+
 ### Mild Dementia - Margaret (78 years old)
 - **Background**: Retired teacher, widow
 - **Symptoms**: Occasional memory lapses, word-finding difficulties
@@ -215,17 +249,12 @@ python -m unittest tests.test_chat -v
 ### Code Quality
 
 ```bash
-# Format code
-poetry run black src/ tests/
-
-# Sort imports
-poetry run isort src/ tests/
-
-# Lint code with ruff (recommended)
+# Lint and format code with ruff
 ruff check src/ tests/
+ruff format src/ tests/
 
-# Or use flake8
-poetry run flake8 src/ tests/
+# Or auto-fix issues
+ruff check --fix src/ tests/
 
 # Type checking
 poetry run mypy src/
