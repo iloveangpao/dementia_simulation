@@ -141,6 +141,74 @@ The system evaluates caregiver responses across multiple dimensions:
 - **Communication Clarity**: Using clear, simple language
 - **Non-confrontational**: Avoiding arguments and corrections
 
+## 🧠 Using the RAG Pipeline
+
+The RAG (Retrieval-Augmented Generation) pipeline can be used programmatically in your own code:
+
+### Basic Usage
+
+```python
+import asyncio
+from dementia_simulation.rag import generate_response
+from dementia_simulation.persona.models import create_sample_personas
+
+async def main():
+    # Create a persona
+    personas = create_sample_personas()
+    persona = personas[0]  # Mild dementia - Margaret
+    
+    # Generate a response
+    response = await generate_response(
+        user_input="How are you feeling today?",
+        persona=persona
+    )
+    
+    print(f"Patient: {response.response_text}")
+    print(f"Mood: {response.persona_mood}")
+    print(f"Confidence: {response.confidence_score:.2f}")
+
+asyncio.run(main())
+```
+
+### Advanced Usage with Custom Pipeline
+
+```python
+from dementia_simulation.rag import DementiaRAGPipeline
+from dementia_simulation.retriever.faiss_retriever import FAISSRetriever
+
+# Initialize with custom settings
+retriever = FAISSRetriever()
+pipeline = DementiaRAGPipeline(
+    retriever=retriever,
+    model_name="microsoft/DialoGPT-medium",
+    use_openai=False,
+    temperature=0.7
+)
+
+# Generate response with conversation history
+conversation_history = [
+    {"speaker": "caregiver", "message": "Good morning!"},
+    {"speaker": "patient", "message": "Good morning dear."}
+]
+
+response = await pipeline.generate_response(
+    user_input="Would you like some breakfast?",
+    persona=persona,
+    conversation_history=conversation_history
+)
+```
+
+### Response Object
+
+The `generate_response` function returns a `RAGResponse` object with:
+
+- `response_text`: The generated patient reply
+- `retrieved_documents`: List of relevant knowledge base documents
+- `confidence_score`: Confidence in the response (0.0-1.0)
+- `persona_mood`: Current mood state of the persona
+- `processing_time`: Time taken to generate response (seconds)
+- `model_used`: Name of the language model used
+
 ## 🛠️ Development
 
 ### Running Tests
