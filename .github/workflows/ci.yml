@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [ main, dev, feature/** ]
+    branches: [ main, dev, feature/**, copilot/** ]
 
 jobs:
   test-and-lint:

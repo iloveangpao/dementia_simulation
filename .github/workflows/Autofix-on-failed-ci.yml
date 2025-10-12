@@ -1,0 +1,106 @@
+name: Autofix-on-failed-CI
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+concurrency:
+  group: autofix-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  nudge-agent:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch PR/branch metadata
+        id: meta
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            core.setOutput('head_branch', run.head_branch);
+            core.setOutput('head_sha', run.head_sha);
+
+      - name: Find PR for this branch/SHA (bail if none)
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const headSha = "${{ steps.meta.outputs.head_sha }}";
+            // PRs for a commit
+            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({owner, repo, commit_sha: headSha});
+            const openPr = prs.data.find(p => p.state === 'open');
+            if (!openPr) {
+              core.info(`No open PR for ${headSha}; skipping.`);
+              core.setOutput('skip', 'true');
+            } else {
+              core.setOutput('skip', 'false');
+              core.setOutput('pr_number', String(openPr.number));
+              core.setOutput('branch', openPr.head.ref);
+            }
+
+      - name: Stop early if no PR
+        if: ${{ steps.pr.outputs.skip == 'true' }}
+        run: echo "No PR; nothing to nudge."
+
+      # 1) stop infinite cycles: cap iterations per branch to N (3)
+      - name: Stop after 3 attempts
+        if: ${{ steps.pr.outputs.skip != 'true' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const branch = "${{ steps.pr.outputs.branch }}";
+            const q = `repo:${owner}/${repo} is:issue is:open in:title "autofix:${branch}"`;
+            const res = await github.rest.search.issuesAndPullRequests({ q });
+            const issue = res.data.items[0];
+            let attempts = 0;
+            if (issue) {
+              const labels = await github.rest.issues.listLabelsOnIssue({owner, repo, issue_number: issue.number});
+              attempts = labels.data.filter(l => l.name.startsWith('autofix-attempt-')).length;
+            }
+            if (attempts >= 3) core.setFailed(`Max autofix attempts reached for branch: ${branch}`);
+
+      # 2) create/label a tracking issue & trigger the agent via comment
+      - name: Create/Reuse tracking issue and trigger Copilot
+        if: ${{ steps.pr.outputs.skip != 'true' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const branch = "${{ steps.pr.outputs.branch }}";
+            const title = `autofix:${branch}`;
+
+            // find or create tracking issue
+            const search = await github.rest.search.issuesAndPullRequests({ q: `repo:${owner}/${repo} is:issue is:open in:title "${title}"` });
+            let issueNum;
+            if (search.data.items.length) {
+              issueNum = search.data.items[0].number;
+            } else {
+              const created = await github.rest.issues.create({owner, repo, title, body: `Autofix tracking for branch \`${branch}\`.`});
+              issueNum = created.data.number;
+              // Optional: add the setup link once, on creation
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issueNum,
+                body: "Enabling Copilot Workspace: https://docs.github.com/en/copilot/github-copilot-workspace/getting-started-with-github-copilot-workspace"
+              });
+            }
+
+            // count attempts and add the next label idempotently
+            const labelsRes = await github.rest.issues.listLabelsOnIssue({owner, repo, issue_number: issueNum});
+            const prior = labelsRes.data.filter(l => l.name.startsWith('autofix-attempt-')).length;
+            const next = prior + 1;
+            await github.rest.issues.addLabels({ owner, repo, issue_number: issueNum, labels: [`autofix-attempt-${next}`] });
+
+            // trigger Copilot Workspace (comment-based trigger)
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: issueNum,
+              body: "@github-copilot-workspace please fix the CI failures from the latest run and push commits to the existing PR.\n\nThis comment triggers the Copilot Workspace bot to attempt automated fixes for CI failures. For details, see: https://docs.github.com/en/copilot/github-copilot-workspace/getting-started-with-github-copilot-workspace"
+            });
