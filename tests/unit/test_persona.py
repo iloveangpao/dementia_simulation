@@ -6,7 +6,9 @@ from dementia_simulation.persona.models import (
     MemoryProfile,
     MoodState,
     PersonalityTraits,
+    StageParameters,
     create_sample_personas,
+    load_stage_config,
 )
 
 
@@ -241,3 +243,202 @@ class TestSamplePersonas:
             assert persona.age > 0
             assert persona.stage in DementiaStage
             assert isinstance(persona.background, dict)
+
+
+class TestStageParameters:
+    """Test stage parameters and configuration."""
+
+    def test_load_stage_config(self):
+        """Test loading stage configuration."""
+        config = load_stage_config()
+
+        assert isinstance(config, dict)
+        assert len(config) == 3  # Three stages
+
+        for stage in DementiaStage:
+            assert stage in config
+            params = config[stage]
+            assert isinstance(params, StageParameters)
+
+    def test_stage_parameters_progression(self):
+        """Test that stage parameters show proper progression."""
+        config = load_stage_config()
+
+        mild = config[DementiaStage.MILD]
+        moderate = config[DementiaStage.MODERATE]
+        severe = config[DementiaStage.SEVERE]
+
+        # Memory should worsen
+        assert mild.short_term_retention_minutes > moderate.short_term_retention_minutes
+        assert (
+            moderate.short_term_retention_minutes > severe.short_term_retention_minutes
+        )
+        assert mild.long_term_clarity_percent > moderate.long_term_clarity_percent
+        assert moderate.long_term_clarity_percent > severe.long_term_clarity_percent
+        assert mild.forgetting_window_hours > moderate.forgetting_window_hours
+        assert moderate.forgetting_window_hours > severe.forgetting_window_hours
+
+        # Confusion/repetition should increase
+        assert mild.confusion_likelihood < moderate.confusion_likelihood
+        assert moderate.confusion_likelihood < severe.confusion_likelihood
+        assert mild.repetition_tendency < moderate.repetition_tendency
+        assert moderate.repetition_tendency < severe.repetition_tendency
+
+        # Communication ability should decrease
+        assert mild.utterance_length_max > moderate.utterance_length_max
+        assert moderate.utterance_length_max > severe.utterance_length_max
+
+        # Disorientation should increase
+        assert (
+            mild.time_disorientation_likelihood
+            < moderate.time_disorientation_likelihood
+        )
+        assert (
+            moderate.time_disorientation_likelihood
+            < severe.time_disorientation_likelihood
+        )
+        assert (
+            mild.person_disorientation_likelihood
+            < moderate.person_disorientation_likelihood
+        )
+        assert (
+            moderate.person_disorientation_likelihood
+            < severe.person_disorientation_likelihood
+        )
+        assert (
+            mild.place_disorientation_likelihood
+            < moderate.place_disorientation_likelihood
+        )
+        assert (
+            moderate.place_disorientation_likelihood
+            < severe.place_disorientation_likelihood
+        )
+
+        # Cooperation should decrease
+        assert mild.cooperation_level > moderate.cooperation_level
+        assert moderate.cooperation_level > severe.cooperation_level
+
+    def test_utterance_length_methods(self):
+        """Test utterance length getter methods."""
+        persona = DementiaPersona("Test", 75, DementiaStage.MODERATE)
+
+        max_length = persona.get_max_utterance_length()
+        typical_length = persona.get_typical_utterance_length()
+
+        assert isinstance(max_length, int)
+        assert isinstance(typical_length, int)
+        assert max_length > typical_length
+        assert typical_length > 0
+
+    def test_disorientation_methods(self):
+        """Test disorientation check methods."""
+        persona = DementiaPersona("Test", 75, DementiaStage.SEVERE)
+
+        # Run multiple times to test probabilistic behavior
+        time_disorientations = [persona.check_time_disorientation() for _ in range(100)]
+        person_disorientations = [
+            persona.check_person_disorientation() for _ in range(100)
+        ]
+        place_disorientations = [
+            persona.check_place_disorientation() for _ in range(100)
+        ]
+
+        # All should return booleans
+        assert all(isinstance(x, bool) for x in time_disorientations)
+        assert all(isinstance(x, bool) for x in person_disorientations)
+        assert all(isinstance(x, bool) for x in place_disorientations)
+
+        # For severe stage, should have some disorientations
+        assert any(time_disorientations), "Should have some time disorientation"
+        assert any(person_disorientations), "Should have some person disorientation"
+        assert any(place_disorientations), "Should have some place disorientation"
+
+
+class TestAffectModel:
+    """Test affect model and mood transitions."""
+
+    def test_validation_triggers_calm(self):
+        """Test that validation triggers calmer states."""
+        persona = DementiaPersona("Test", 75, DementiaStage.MODERATE)
+        persona.current_mood = MoodState.AGITATED
+
+        # Try multiple times to trigger the transition
+        for _ in range(20):
+            mood = persona.update_mood("validation")
+            if mood == MoodState.CALM:
+                break
+
+        # Should eventually transition to calm
+        assert persona.current_mood == MoodState.CALM
+
+    def test_contradiction_triggers_agitation(self):
+        """Test that contradiction triggers agitation."""
+        persona = DementiaPersona("Test", 75, DementiaStage.MODERATE)
+        persona.current_mood = MoodState.CALM
+
+        # Try multiple times to trigger the transition
+        for _ in range(20):
+            mood = persona.update_mood("contradiction")
+            if mood == MoodState.AGITATED:
+                break
+
+        # Should eventually transition to agitated
+        assert persona.current_mood == MoodState.AGITATED
+
+    def test_affect_transition_rules(self):
+        """Test that affect transitions follow defined rules."""
+        persona = DementiaPersona("Test", 75, DementiaStage.MILD)
+
+        # Test calming triggers
+        calming_triggers = ["validation", "reassurance", "agreement", "comfort"]
+        for trigger in calming_triggers:
+            persona.current_mood = MoodState.ANXIOUS
+            for _ in range(20):
+                persona.update_mood(trigger)
+                if persona.current_mood in [MoodState.CALM, MoodState.CONTENT]:
+                    break
+            assert persona.current_mood in [
+                MoodState.CALM,
+                MoodState.CONTENT,
+            ], f"Trigger '{trigger}' should lead to calm/content"
+
+        # Test agitation triggers
+        agitation_triggers = ["correction", "contradiction", "confrontation"]
+        for trigger in agitation_triggers:
+            persona.current_mood = MoodState.CALM
+            for _ in range(20):
+                persona.update_mood(trigger)
+                if persona.current_mood in [
+                    MoodState.AGITATED,
+                    MoodState.FRUSTRATED,
+                ]:
+                    break
+            assert persona.current_mood in [
+                MoodState.AGITATED,
+                MoodState.FRUSTRATED,
+            ], f"Trigger '{trigger}' should lead to agitation/frustration"
+
+    def test_stage_affects_mood_reactivity(self):
+        """Test that more severe stages are more reactive to triggers."""
+        mild_persona = DementiaPersona("Mild", 75, DementiaStage.MILD)
+        severe_persona = DementiaPersona("Severe", 75, DementiaStage.SEVERE)
+
+        # Count how many times mood changes with contradiction trigger
+        mild_changes = 0
+        severe_changes = 0
+
+        for _ in range(50):
+            mild_persona.current_mood = MoodState.CALM
+            mild_persona.update_mood("contradiction")
+            if mild_persona.current_mood == MoodState.AGITATED:
+                mild_changes += 1
+
+            severe_persona.current_mood = MoodState.CALM
+            severe_persona.update_mood("contradiction")
+            if severe_persona.current_mood == MoodState.AGITATED:
+                severe_changes += 1
+
+        # Severe stage should react more often
+        assert (
+            severe_changes > mild_changes
+        ), "Severe stage should be more reactive to triggers"

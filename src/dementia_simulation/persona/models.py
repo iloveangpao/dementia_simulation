@@ -9,7 +9,10 @@ import random
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from typing import Dict, List, Optional
+
+import yaml
 
 
 class DementiaStage(Enum):
@@ -40,6 +43,33 @@ class MemoryProfile:
     long_term_clarity_percent: int
     confusion_likelihood: float
     repetition_tendency: float
+    forgetting_window_hours: int = 24
+
+
+@dataclass
+class StageParameters:
+    """Extended parameters for each dementia stage."""
+
+    # Memory parameters
+    short_term_retention_minutes: int
+    long_term_clarity_percent: int
+    confusion_likelihood: float
+    repetition_tendency: float
+    forgetting_window_hours: int
+
+    # Communication parameters
+    utterance_length_max: int
+    utterance_length_typical: int
+
+    # Disorientation parameters
+    time_disorientation_likelihood: float
+    person_disorientation_likelihood: float
+    place_disorientation_likelihood: float
+
+    # Behavioral parameters
+    agitation_baseline: float
+    mood_volatility: float
+    cooperation_level: float
 
 
 @dataclass
@@ -52,33 +82,116 @@ class PersonalityTraits:
     cooperation_level: float  # 0.0 to 1.0
 
 
+def load_stage_config() -> Dict[DementiaStage, StageParameters]:
+    """
+    Load stage configuration from YAML file.
+
+    Returns:
+        Dictionary mapping stage to parameters
+    """
+    config_path = Path(__file__).parent / "stage_config.yaml"
+
+    if not config_path.exists():
+        # Return default config if file not found
+        return _get_default_stage_config()
+
+    with open(config_path, "r") as f:
+        config_data = yaml.safe_load(f)
+
+    stage_config = {}
+    for stage in DementiaStage:
+        stage_key = stage.value
+        if stage_key in config_data:
+            params = config_data[stage_key]
+            stage_config[stage] = StageParameters(**params)
+
+    return stage_config
+
+
+def _get_default_stage_config() -> Dict[DementiaStage, StageParameters]:
+    """Get default stage configuration."""
+    return {
+        DementiaStage.MILD: StageParameters(
+            short_term_retention_minutes=30,
+            long_term_clarity_percent=85,
+            confusion_likelihood=0.2,
+            repetition_tendency=0.1,
+            forgetting_window_hours=24,
+            utterance_length_max=200,
+            utterance_length_typical=100,
+            time_disorientation_likelihood=0.1,
+            person_disorientation_likelihood=0.05,
+            place_disorientation_likelihood=0.05,
+            agitation_baseline=0.1,
+            mood_volatility=0.2,
+            cooperation_level=0.8,
+        ),
+        DementiaStage.MODERATE: StageParameters(
+            short_term_retention_minutes=10,
+            long_term_clarity_percent=60,
+            confusion_likelihood=0.5,
+            repetition_tendency=0.3,
+            forgetting_window_hours=8,
+            utterance_length_max=150,
+            utterance_length_typical=70,
+            time_disorientation_likelihood=0.4,
+            person_disorientation_likelihood=0.3,
+            place_disorientation_likelihood=0.3,
+            agitation_baseline=0.3,
+            mood_volatility=0.4,
+            cooperation_level=0.6,
+        ),
+        DementiaStage.SEVERE: StageParameters(
+            short_term_retention_minutes=2,
+            long_term_clarity_percent=25,
+            confusion_likelihood=0.8,
+            repetition_tendency=0.6,
+            forgetting_window_hours=2,
+            utterance_length_max=80,
+            utterance_length_typical=40,
+            time_disorientation_likelihood=0.8,
+            person_disorientation_likelihood=0.7,
+            place_disorientation_likelihood=0.7,
+            agitation_baseline=0.5,
+            mood_volatility=0.6,
+            cooperation_level=0.4,
+        ),
+    }
+
+
 class DementiaPersona:
     """
     Represents a dementia patient persona with specific characteristics
     based on their stage of dementia progression.
     """
 
-    # Default memory profiles for each stage
+    # Default memory profiles for each stage (backward compatibility)
     MEMORY_PROFILES = {
         DementiaStage.MILD: MemoryProfile(
             short_term_retention_minutes=30,
             long_term_clarity_percent=85,
             confusion_likelihood=0.2,
             repetition_tendency=0.1,
+            forgetting_window_hours=24,
         ),
         DementiaStage.MODERATE: MemoryProfile(
             short_term_retention_minutes=10,
             long_term_clarity_percent=60,
             confusion_likelihood=0.5,
             repetition_tendency=0.3,
+            forgetting_window_hours=8,
         ),
         DementiaStage.SEVERE: MemoryProfile(
             short_term_retention_minutes=2,
             long_term_clarity_percent=25,
             confusion_likelihood=0.8,
             repetition_tendency=0.6,
+            forgetting_window_hours=2,
         ),
     }
+
+    # Load stage configuration
+    STAGE_CONFIG: Dict[DementiaStage, StageParameters] = load_stage_config()
 
     def __init__(
         self,
@@ -142,35 +255,77 @@ class DementiaPersona:
         """
         Update current mood based on personality and external triggers.
 
+        Implements rule-based affect transitions:
+        - validation → calmer states
+        - contradiction → agitation
+
         Args:
             trigger: External trigger that might affect mood
 
         Returns:
             Updated mood state
         """
+        stage_params = self.STAGE_CONFIG.get(self.stage)
+
         # Random mood fluctuation based on volatility
-        if random.random() < self.personality.mood_volatility * 0.3:
+        if stage_params and random.random() < stage_params.mood_volatility * 0.3:
             mood_options = list(MoodState)
             # Remove current mood to force a change
             if self.current_mood in mood_options:
                 mood_options.remove(self.current_mood)
             self.current_mood = random.choice(mood_options)
 
-        # Specific trigger responses
+        # Affect model: rule-based trigger responses
         if trigger:
-            trigger_responses = {
-                "question_repeated": MoodState.FRUSTRATED,
-                "unfamiliar_person": MoodState.ANXIOUS,
-                "familiar_topic": MoodState.CONTENT,
-                "correction": MoodState.AGITATED,
-                "validation": MoodState.CALM,
-            }
+            trigger_responses = self._get_affect_transitions(trigger)
             if trigger in trigger_responses:
-                # 70% chance to respond to trigger
-                if random.random() < 0.7:
+                # Higher severity = more reactive to triggers
+                response_probability = 0.6 + (
+                    0.3
+                    if self.stage == DementiaStage.SEVERE
+                    else 0.2 if self.stage == DementiaStage.MODERATE else 0.1
+                )
+                if random.random() < response_probability:
                     self.current_mood = trigger_responses[trigger]
 
         return self.current_mood
+
+    def _get_affect_transitions(self, trigger: str) -> Dict[str, MoodState]:
+        """
+        Get affect model transitions based on triggers.
+
+        Rule-based transitions:
+        - Validation/reassurance → calmer states
+        - Contradiction/correction → agitation/frustration
+        - Questions repeated → frustration
+        - Unfamiliar situations → anxiety
+
+        Args:
+            trigger: The trigger type
+
+        Returns:
+            Dictionary mapping triggers to mood states
+        """
+        return {
+            # Calming triggers (validation)
+            "validation": MoodState.CALM,
+            "reassurance": MoodState.CALM,
+            "agreement": MoodState.CONTENT,
+            "familiar_topic": MoodState.CONTENT,
+            "comfort": MoodState.CALM,
+            # Agitation triggers (contradiction)
+            "correction": MoodState.AGITATED,
+            "contradiction": MoodState.AGITATED,
+            "disagreement": MoodState.FRUSTRATED,
+            "confrontation": MoodState.AGITATED,
+            "argument": MoodState.AGITATED,
+            # Other triggers
+            "question_repeated": MoodState.FRUSTRATED,
+            "unfamiliar_person": MoodState.ANXIOUS,
+            "unfamiliar_place": MoodState.ANXIOUS,
+            "confusion": MoodState.CONFUSED,
+            "pressure": MoodState.ANXIOUS,
+        }
 
     def should_remember(self, minutes_ago: int) -> bool:
         """
@@ -199,6 +354,66 @@ class DementiaPersona:
     def should_repeat(self) -> bool:
         """Determine if the persona should repeat themselves."""
         return random.random() < self.memory_profile.repetition_tendency
+
+    def check_time_disorientation(self) -> bool:
+        """
+        Check if persona is disoriented about time.
+
+        Returns:
+            True if disoriented about time
+        """
+        stage_params = self.STAGE_CONFIG.get(self.stage)
+        if not stage_params:
+            return False
+        return random.random() < stage_params.time_disorientation_likelihood
+
+    def check_person_disorientation(self) -> bool:
+        """
+        Check if persona is disoriented about people.
+
+        Returns:
+            True if disoriented about people/identities
+        """
+        stage_params = self.STAGE_CONFIG.get(self.stage)
+        if not stage_params:
+            return False
+        return random.random() < stage_params.person_disorientation_likelihood
+
+    def check_place_disorientation(self) -> bool:
+        """
+        Check if persona is disoriented about location.
+
+        Returns:
+            True if disoriented about place/location
+        """
+        stage_params = self.STAGE_CONFIG.get(self.stage)
+        if not stage_params:
+            return False
+        return random.random() < stage_params.place_disorientation_likelihood
+
+    def get_max_utterance_length(self) -> int:
+        """
+        Get maximum utterance length for this stage.
+
+        Returns:
+            Maximum response length in characters
+        """
+        stage_params = self.STAGE_CONFIG.get(self.stage)
+        if not stage_params:
+            return 200
+        return stage_params.utterance_length_max
+
+    def get_typical_utterance_length(self) -> int:
+        """
+        Get typical utterance length for this stage.
+
+        Returns:
+            Typical response length in characters
+        """
+        stage_params = self.STAGE_CONFIG.get(self.stage)
+        if not stage_params:
+            return 100
+        return stage_params.utterance_length_typical
 
     def get_symptoms_description(self) -> Dict[str, str]:
         """
