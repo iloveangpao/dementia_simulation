@@ -276,9 +276,7 @@ class DementiaPersona:
         )
 
     def update_mood(
-        self,
-        trigger: Optional[str] = None,
-        crisis_handled: bool = False
+        self, trigger: Optional[str] = None, crisis_handled: bool = False
     ) -> MoodState:
         """
         Update current mood based on personality and external triggers.
@@ -328,10 +326,9 @@ class DementiaPersona:
 
         # Update drift with mean reversion and noise
         dt = 0.1  # Time step
-        drift_change = (
-            theta * (target_drift - self._mood_drift) * dt
-            + sigma * random.gauss(0, 1) * (dt ** 0.5)
-        )
+        drift_change = theta * (
+            target_drift - self._mood_drift
+        ) * dt + sigma * random.gauss(0, 1) * (dt**0.5)
         self._mood_drift += drift_change
 
         # Normalize and clip drift to [0, 1] range (renormalized from [-2, 2])
@@ -545,8 +542,7 @@ class DementiaPersona:
 
         # Sample from normal distribution with stage parameters
         length = random.gauss(
-            stage_params.utterance_length_mean,
-            stage_params.utterance_length_std
+            stage_params.utterance_length_mean, stage_params.utterance_length_std
         )
 
         # Check if in cooldown after agitation spike
@@ -558,8 +554,7 @@ class DementiaPersona:
             in_cooldown_period = time_since_spike < 180
 
         # For severe stage with short bursts enabled
-        if (stage_params.allow_short_bursts and
-            self.stage == DementiaStage.SEVERE):
+        if stage_params.allow_short_bursts and self.stage == DementiaStage.SEVERE:
             # Base burst probability
             burst_prob = 0.3 + self.scenario_burst_probability_modifier
 
