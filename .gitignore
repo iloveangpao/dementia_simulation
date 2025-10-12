@@ -207,6 +207,7 @@ data/uploads/*
 data/processed/*
 !data/processed/.gitkeep
 .streamlit/
+reports/
 
 # Model caches
 .cache/
