@@ -70,6 +70,14 @@ jobs:
           name: failure-logs
           path: failure-logs.txt
 
+      - name: Upload evaluation metrics
+        if: always() # Always upload metrics, even if tests fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-metrics
+          path: reports/quick_metrics.json
+          if-no-files-found: ignore # Don't fail if the file doesn't exist
+
   handle-failure:
     needs: [test-and-lint]
     if: ${{ needs.test-and-lint.result == 'failure' && github.actor != 'github-copilot[bot]' }}
