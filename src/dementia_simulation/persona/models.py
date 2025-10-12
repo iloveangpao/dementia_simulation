@@ -321,8 +321,8 @@ class DementiaPersona:
             # Scale drift by stage severity (more severe = stronger reactions)
             severity_scale = {
                 DementiaStage.MILD: 1.0,
-                DementiaStage.MODERATE: 1.3,
-                DementiaStage.SEVERE: 1.6,
+                DementiaStage.MODERATE: 2.0,
+                DementiaStage.SEVERE: 3.0,
             }
             target_drift *= severity_scale.get(self.stage, 1.0)
 
