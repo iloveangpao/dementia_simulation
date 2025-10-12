@@ -163,6 +163,25 @@ poetry run dementia-sim server
 # Documentation at http://localhost:8000/docs
 ```
 
+**API Endpoints:**
+
+Core Endpoints:
+- `POST /chat` - Chat with a dementia persona
+- `POST /evaluate` - Evaluate caregiver empathy
+- `GET /personas` - List all available personas
+- `GET /personas/{persona_id}` - Get specific persona details
+
+Session Management:
+- `GET /sessions/{session_id}` - Get session information
+- `DELETE /sessions/{session_id}` - Delete a session
+- `POST /reset` - Clear all sessions
+- `GET /export?session_id=...` - Export transcript in JSONL format
+
+Telemetry & Metrics:
+- `GET /metrics/quick` - Get quick metrics for CI/dashboards
+- `GET /stats` - Get system statistics
+- `GET /health` - Health check endpoint
+
 ## 💬 Chat Orchestration System
 
 The `src/chat.py` module implements a sophisticated chat loop that orchestrates conversations with dementia patients. Key features include:
@@ -511,6 +530,120 @@ The utility creates:
 3. Add to knowledge base in `data/knowledge_base/`
 4. Rebuild the FAISS index with `python build_index.py`
 5. Test with unit tests
+
+## 📊 Telemetry & Operations
+
+The application includes comprehensive telemetry and monitoring features for production deployments and CI/CD pipelines.
+
+### Session Management
+
+**Pluggable Session Store with TTL**
+
+Sessions are stored in a pluggable session store with configurable Time-To-Live (TTL):
+
+```bash
+# Configure session TTL (default: 3600 seconds = 1 hour)
+SESSION_TTL_SECONDS=7200
+```
+
+The in-memory session store automatically expires old sessions and supports:
+- Auto-expiration based on TTL
+- TTL refresh on access
+- Bulk operations (list, clear, cleanup)
+- Get-or-create pattern
+
+**Export Transcripts**
+
+Export conversation transcripts in JSONL format:
+
+```bash
+curl http://localhost:8000/export?session_id=session_123
+```
+
+Each line is a JSON object with:
+```json
+{"speaker": "caregiver", "message": "...", "timestamp": "2024-01-01T12:00:00"}
+{"speaker": "patient", "message": "...", "timestamp": "2024-01-01T12:00:05", "mood": "calm"}
+```
+
+**Reset Sessions**
+
+Clear all active sessions:
+
+```bash
+curl -X POST http://localhost:8000/reset
+```
+
+Returns the number of sessions cleared.
+
+### Structured Logging
+
+Per-turn JSON logs capture:
+- Persona state (mood, stage, name)
+- Retrieval hits (documents used, scores)
+- Flags (low confidence, long processing time)
+- Metadata (model used, processing time)
+
+Logs are stored in `logs/telemetry/telemetry_YYYYMMDD.jsonl`:
+
+```json
+{
+  "timestamp": "2024-01-01T12:00:00",
+  "session_id": "session_123",
+  "turn_number": 1,
+  "user_input": "How are you feeling?",
+  "response": "I'm feeling well, thank you.",
+  "persona_state": {"mood": "calm", "stage": "mild", "name": "Margaret"},
+  "retrieval_hits": [{"text": "...", "score": 0.85}],
+  "flags": {"low_confidence": false, "long_processing": false},
+  "metadata": {"model_used": "microsoft/DialoGPT-medium", "processing_time": 0.5}
+}
+```
+
+### Metrics Endpoint
+
+The `/metrics/quick` endpoint provides real-time metrics for CI/nightly dashboards:
+
+```bash
+curl http://localhost:8000/metrics/quick
+```
+
+Returns:
+```json
+{
+  "timestamp": "2024-01-01T12:00:00",
+  "uptime_seconds": 3600,
+  "counters": {
+    "total_turns": 150,
+    "total_sessions": 12,
+    "active_sessions": 5,
+    "total_errors": 2,
+    "total_retrievals": 450,
+    "total_evaluations": 8
+  },
+  "flags": {
+    "high_confusion": 3,
+    "low_empathy": 1,
+    "rapid_mood_change": 0
+  },
+  "sessions_with_turns": 12,
+  "avg_turns_per_session": 12.5
+}
+```
+
+**Integration with CI/CD**
+
+Use the metrics endpoint in nightly builds:
+
+```bash
+# In your CI script
+METRICS=$(curl -s http://localhost:8000/metrics/quick)
+ERROR_COUNT=$(echo $METRICS | jq '.counters.total_errors')
+if [ $ERROR_COUNT -gt 10 ]; then
+  echo "High error count detected: $ERROR_COUNT"
+  exit 1
+fi
+```
 
 ## 🔧 Configuration
 

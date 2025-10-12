@@ -5,14 +5,15 @@ This module provides a REST API for interacting with the dementia simulation
 system, including endpoints for chat, persona management, and evaluation.
 """
 
+import json
 import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from loguru import logger
 from pydantic import BaseModel, Field
 
@@ -25,6 +26,9 @@ from ..retriever.faiss_retriever import (
     FAISSRetriever,
     initialize_retriever_with_knowledge_base,
 )
+from ..session.store import InMemorySessionStore, SessionStore
+from ..telemetry.logger import TelemetryLogger
+from ..telemetry.metrics import MetricsCollector
 
 
 # Pydantic models for API
@@ -132,9 +136,12 @@ class AppState:
     def __init__(self):
         self.rag_pipeline: Optional[DementiaRAGPipeline] = None
         self.personas: Dict[str, DementiaPersona] = {}
-        self.sessions: Dict[str, Dict] = {}
+        self.session_store: Optional[SessionStore] = None
         self.evaluator: Optional[EmpathyEvaluator] = None
+        self.telemetry_logger: Optional[TelemetryLogger] = None
+        self.metrics: Optional[MetricsCollector] = None
         self.initialized = False
+        self.turn_counters: Dict[str, int] = {}
 
     async def initialize(self):
         """Initialize the application components."""
@@ -142,6 +149,14 @@ class AppState:
             return
 
         logger.info("Initializing application components...")
+
+        # Initialize session store with TTL
+        ttl_seconds = int(os.getenv("SESSION_TTL_SECONDS", 3600))
+        self.session_store = InMemorySessionStore(ttl_seconds=ttl_seconds)
+
+        # Initialize telemetry
+        self.telemetry_logger = TelemetryLogger()
+        self.metrics = MetricsCollector()
 
         # Initialize retriever
         retriever = FAISSRetriever()
@@ -167,13 +182,18 @@ class AppState:
 
     def get_or_create_session(self, session_id: str) -> Dict:
         """Get or create a conversation session."""
-        if session_id not in self.sessions:
-            self.sessions[session_id] = {
-                "created_at": datetime.now(),
-                "messages": [],
-                "current_persona": None,
-            }
-        return self.sessions[session_id]
+        session = self.session_store.get_or_create(session_id)
+
+        # Track new session
+        if session_id not in self.turn_counters:
+            self.turn_counters[session_id] = 0
+            self.metrics.increment("total_sessions")
+            self.metrics.set_counter(
+                "active_sessions", len(self.session_store.list_all())
+            )
+            self.telemetry_logger.log_event("session_start", session_id)
+
+        return session
 
 
 # Global app state
@@ -308,6 +328,10 @@ async def chat(request: ChatRequest, state: AppState = Depends(ensure_initialize
             conversation_history=session["messages"],
         )
 
+        # Increment turn counter
+        state.turn_counters[session_id] = state.turn_counters.get(session_id, 0) + 1
+        turn_number = state.turn_counters[session_id]
+
         # Add messages to session
         session["messages"].append(
             {
@@ -325,6 +349,52 @@ async def chat(request: ChatRequest, state: AppState = Depends(ensure_initialize
             }
         )
 
+        # Update session in store
+        state.session_store.set(session_id, session)
+
+        # Log telemetry
+        persona_state = {
+            "mood": rag_response.persona_mood,
+            "stage": persona.stage.value,
+            "name": persona.name,
+        }
+        retrieval_hits = [
+            {
+                "text": (
+                    str(doc.get("text", ""))[:100]
+                    if isinstance(doc, dict)
+                    else str(doc)[:100]
+                ),
+                "score": doc.get("score", 0.0) if isinstance(doc, dict) else 0.0,
+            }
+            for doc in rag_response.retrieved_documents
+        ]
+        flags = {
+            "low_confidence": rag_response.confidence_score < 0.5,
+            "long_processing": rag_response.processing_time > 2.0,
+        }
+        state.telemetry_logger.log_turn(
+            session_id=session_id,
+            turn_number=turn_number,
+            user_input=message_text,
+            response=rag_response.response_text,
+            persona_state=persona_state,
+            retrieval_hits=retrieval_hits,
+            flags=flags,
+            metadata={
+                "model_used": rag_response.model_used,
+                "processing_time": rag_response.processing_time,
+            },
+        )
+
+        # Update metrics
+        state.metrics.increment("total_turns")
+        state.metrics.increment(
+            "total_retrievals", len(rag_response.retrieved_documents)
+        )
+        if flags["low_confidence"]:
+            state.metrics.increment_flag("low_confidence")
+
         return ChatResponse(
             response=rag_response.response_text,
             reply=rag_response.response_text,  # Alias
@@ -339,6 +409,10 @@ async def chat(request: ChatRequest, state: AppState = Depends(ensure_initialize
 
     except Exception as e:
         logger.error(f"Chat error: {e}")
+        state.metrics.increment("total_errors")
+        state.telemetry_logger.log_event(
+            "error", session_id, {"error": str(e), "endpoint": "chat"}
+        )
         raise HTTPException(status_code=500, detail="Error generating response") from e
 
 
@@ -374,6 +448,11 @@ async def evaluate_empathy(
             "needs_improvement": len(evaluation.get("improvements", [])) > 2,
         }
 
+        # Update metrics
+        state.metrics.increment("total_evaluations")
+        if flags["low_validation"]:
+            state.metrics.increment_flag("low_empathy")
+
         return EvaluationResponse(
             overall_empathy_score=evaluation["overall_score"],
             overall_score=evaluation["overall_score"],  # Alias
@@ -388,16 +467,17 @@ async def evaluate_empathy(
         raise
     except Exception as e:
         logger.error(f"Evaluation error: {e}")
+        state.metrics.increment("total_errors")
         raise HTTPException(status_code=500, detail="Error evaluating empathy") from e
 
 
 @app.get("/sessions/{session_id}")
 async def get_session(session_id: str, state: AppState = Depends(ensure_initialized)):
     """Get conversation session information."""
-    if session_id not in state.sessions:
+    session = state.session_store.get(session_id)
+    if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    session = state.sessions[session_id]
     return {
         "session_id": session_id,
         "created_at": session["created_at"],
@@ -412,10 +492,15 @@ async def delete_session(
     session_id: str, state: AppState = Depends(ensure_initialized)
 ):
     """Delete a conversation session."""
-    if session_id not in state.sessions:
+    if not state.session_store.delete(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
-    del state.sessions[session_id]
+    if session_id in state.turn_counters:
+        del state.turn_counters[session_id]
+
+    state.telemetry_logger.log_event("session_end", session_id)
+    state.metrics.set_counter("active_sessions", len(state.session_store.list_all()))
+
     return {"message": "Session deleted successfully"}
 
 
@@ -424,13 +509,59 @@ async def get_stats(state: AppState = Depends(ensure_initialized)):
     """Get system statistics."""
     stats = {
         "total_personas": len(state.personas),
-        "active_sessions": len(state.sessions),
+        "active_sessions": len(state.session_store.list_all()),
         "pipeline_stats": state.rag_pipeline.get_pipeline_stats()
         if state.rag_pipeline
         else {},
         "uptime": datetime.now().isoformat(),
     }
     return stats
+
+
+@app.post("/reset")
+async def reset_sessions(state: AppState = Depends(ensure_initialized)):
+    """Reset all sessions and clear session store."""
+    count = state.session_store.clear()
+    state.turn_counters.clear()
+    state.telemetry_logger.log_event("reset", data={"sessions_cleared": count})
+    state.metrics.set_counter("active_sessions", 0)
+    return {
+        "message": "All sessions reset successfully",
+        "sessions_cleared": count,
+    }
+
+
+@app.get("/export", response_class=PlainTextResponse)
+async def export_transcript(
+    session_id: str = Query(..., description="Session ID to export"),
+    state: AppState = Depends(ensure_initialized),
+):
+    """Export conversation transcript in JSONL format."""
+    session = state.session_store.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Build JSONL output
+    lines = []
+    for message in session["messages"]:
+        line = json.dumps(message, ensure_ascii=False)
+        lines.append(line)
+
+    return "\n".join(lines)
+
+
+@app.get("/metrics/quick")
+async def get_quick_metrics(state: AppState = Depends(ensure_initialized)):
+    """Get quick metrics for CI/nightly dashboards."""
+    metrics = state.metrics.get_metrics()
+
+    # Add additional computed metrics
+    metrics["sessions_with_turns"] = len(state.turn_counters)
+    metrics["avg_turns_per_session"] = (
+        metrics["counters"]["total_turns"] / max(1, metrics["sessions_with_turns"])
+    )
+
+    return metrics
 
 
 def create_app() -> FastAPI:
