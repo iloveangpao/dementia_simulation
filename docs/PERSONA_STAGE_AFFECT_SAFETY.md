@@ -26,11 +26,17 @@ A comprehensive YAML configuration file defines parameters for each dementia sta
 - `forgetting_window_hours`: Time window for forgetting
   - Mild: 24h → Moderate: 8h → Severe: 2h
 
-#### Communication Parameters
-- `utterance_length_max`: Maximum response length
-  - Mild: 200 chars → Moderate: 150 chars → Severe: 80 chars
-- `utterance_length_typical`: Typical response length
-  - Mild: 100 chars → Moderate: 70 chars → Severe: 40 chars
+#### Communication Parameters (Distribution-Based)
+- `utterance_length_mean`: Mean response length (characters)
+  - Mild: 100 → Moderate: 70 → Severe: 40
+- `utterance_length_std`: Standard deviation for natural variation
+  - Mild: 30 → Moderate: 25 → Severe: 15
+- `utterance_length_max`: Soft maximum (80% enforcement, 20% exceedance allowed)
+  - Mild: 250 → Moderate: 180 → Severe: 100
+- `allow_short_bursts`: Enable short phrase bursts for severe stage
+  - Severe: 30% probability of 5-20 character responses
+
+**Note**: Uses truncated normal distribution with random jitter to avoid robotic cadence and simulate natural cognitive variability.
 
 #### Disorientation Parameters
 - `time_disorientation_likelihood`: Confusion about time
@@ -55,54 +61,68 @@ from dementia_simulation.persona.models import DementiaPersona, DementiaStage
 
 persona = DementiaPersona("John", 75, DementiaStage.MODERATE)
 
-# Get utterance length constraints
-max_length = persona.get_max_utterance_length()  # 150
-typical_length = persona.get_typical_utterance_length()  # 70
+# Sample utterance length from distribution (varies each call)
+length = persona.sample_utterance_length()  # e.g., 68, 72, 55...
+
+# Get stage parameters
+max_length = persona.get_max_utterance_length()  # 180 (soft max)
+typical_length = persona.get_typical_utterance_length()  # 70 (mean)
 
 # Check disorientation
 if persona.check_time_disorientation():
     print("Patient is disoriented about time")
-    
+
 if persona.check_person_disorientation():
     print("Patient may not recognize familiar people")
-    
+
 if persona.check_place_disorientation():
     print("Patient is confused about location")
 ```
 
 ## Affect Model
 
-### Rule-Based Mood Transitions
+### Bounded Random Walk (Ornstein-Uhlenbeck Process)
 
-The affect model implements realistic emotional responses to caregiver interactions:
+The affect model uses a bounded random walk for natural, unpredictable mood transitions with context-conditioned drift:
 
-#### Calming Triggers → Calm/Content States
-- `validation`: Acknowledging feelings without correction
-- `reassurance`: Providing comfort and support
-- `agreement`: Agreeing with the patient
-- `comfort`: Physical or emotional comfort
-- `familiar_topic`: Discussing familiar subjects
+**Key Features:**
+- **Mean reversion**: Drift naturally returns toward baseline mood
+- **Context-conditioned**: Triggers create directional drift
+- **Stage-dependent reactivity**: Severe stages react more strongly
+- **Bounded**: Drift constrained to [-2, 2] range for stability
+- **Stochastic**: Noise term creates natural variability
 
-#### Agitation Triggers → Agitated/Frustrated States
-- `contradiction`: Disagreeing with the patient
-- `correction`: Correcting their statements
-- `confrontation`: Challenging or confronting
-- `disagreement`: Expressing disagreement
-- `argument`: Arguing with the patient
+#### Mood Drift System
 
-#### Other Triggers
-- `question_repeated`: Asking same question repeatedly → Frustrated
-- `unfamiliar_person`: Encountering strangers → Anxious
-- `unfamiliar_place`: Being in unknown location → Anxious
-- `confusion`: General confusion → Confused
-- `pressure`: Feeling rushed or pressured → Anxious
+**Negative Drift** (toward calmer states):
+- `validation`: -1.2 drift (acknowledging feelings)
+- `reassurance`: -1.0 drift (providing comfort)
+- `agreement`: -0.8 drift (agreeing with patient)
+- `comfort`: -1.0 drift (physical/emotional comfort)
+- `familiar_topic`: -0.6 drift (discussing familiar subjects)
+
+**Positive Drift** (toward agitated states):
+- `contradiction`: +1.5 drift (disagreeing with patient)
+- `correction`: +1.5 drift (correcting statements)
+- `confrontation`: +1.8 drift (challenging/confronting)
+- `disagreement`: +1.0 drift (expressing disagreement)
+- `argument`: +1.6 drift (arguing with patient)
+
+**Other Triggers:**
+- `question_repeated`: +1.0 drift → Frustrated
+- `unfamiliar_person`: +0.8 drift → Anxious
+- `unfamiliar_place`: +0.8 drift → Anxious
+- `confusion`: +0.5 drift → Confused
+- `pressure`: +1.0 drift → Anxious
 
 ### Stage-Dependent Reactivity
 
-More severe dementia stages react more strongly to triggers:
-- Mild: ~70% chance to respond to trigger
-- Moderate: ~80% chance to respond to trigger
-- Severe: ~90% chance to respond to trigger
+Drift is scaled by stage severity:
+- **Mild**: 1.0x drift (baseline reactivity)
+- **Moderate**: 1.3x drift (30% more reactive)
+- **Severe**: 1.6x drift (60% more reactive)
+
+This creates more volatile, unpredictable mood changes in severe stages while maintaining natural transitions.
 
 ### Usage Example
 
@@ -122,7 +142,18 @@ print(f"Mood: {persona.current_mood.value}")  # likely "agitated" or "frustrated
 
 ### Overview
 
-The `SafetyGuardrails` class provides hard filters for unsafe content in caregiver communications.
+The `SafetyGuardrails` class provides speaker-aware filtering for unsafe content. It differentiates between caregiver and patient speech to allow realistic patient expressions while coaching caregivers.
+
+### Speaker Context
+
+**Caregiver (default)**: All filters applied
+- Medical advice, coercive, derogatory, harmful, inappropriate content blocked
+- Violations result in coaching replacement text
+
+**Patient**: Only high-risk content flagged
+- Allows realistic expressions: "I want to go home", "leave me alone", medication refusal
+- Flags harmful content (self-harm, violence) for crisis handling
+- Violations noted but text preserved for scenario-aware response
 
 ### Violation Types
 
@@ -192,31 +223,55 @@ from dementia_simulation.safety import SafetyGuardrails
 # Initialize guardrails
 guardrails = SafetyGuardrails(strict_mode=True)
 
-# Check if text is safe
-text = "How are you feeling today?"
-if guardrails.is_safe(text):
-    print("Safe to use")
+# Check caregiver text (default)
+caregiver_text = "You must take your medication now."
+if not guardrails.is_safe(caregiver_text, speaker="caregiver"):
+    violations = guardrails.check_text(caregiver_text)
+    print(f"Blocked: {violations[0].violation_type}")
 
-# Get detailed violations
-unsafe_text = "You must take your medication now."
-violations = guardrails.check_text(unsafe_text)
+# Check patient text (allows realistic expressions)
+patient_text = "I want to go home. Leave me alone."
+if guardrails.is_safe(patient_text, speaker="patient"):
+    print("Patient expression allowed")
 
-for violation in violations:
-    print(f"Type: {violation.violation_type}")
-    print(f"Pattern: {violation.matched_pattern}")
-    print(f"Context: {violation.context}")
-    print(f"Suggestion: {guardrails.get_suggestion(violation)}")
+# Handle high-risk patient content
+risky_patient = "I want to hurt myself"
+violations = guardrails.check_text(risky_patient, speaker="patient")
+if violations:
+    # Flag for crisis handling, but preserve text
+    print(f"⚠️ Crisis flag: {violations[0].violation_type}")
+    # Route to crisis response path in UI
 
-# Filter and replace unsafe content
-filtered_text, violations = guardrails.filter_response(unsafe_text)
-print(f"Filtered: {filtered_text}")
+# Filter caregiver response
+unsafe_caregiver = "You're being stupid."
+filtered, violations = guardrails.filter_response(
+    unsafe_caregiver,
+    speaker="caregiver"
+)
+print(f"Filtered: {filtered}")
 # Output: "[This response was filtered for safety...]"
 
-# Custom replacement text
-filtered, _ = guardrails.filter_response(
-    unsafe_text,
-    replacement="Please rephrase that."
-)
+# Get coaching suggestions
+for violation in violations:
+    suggestion = guardrails.get_suggestion(violation)
+    print(f"Suggestion: {suggestion}")
+```
+
+### Clinical Realism
+
+Patient expressions that are **allowed** for realistic training scenarios:
+- "I want to go home" (even if they are home)
+- "I don't want my medication" (medication refusal)
+- "Leave me alone" (agitation/withdrawal)
+- "Where is my mother?" (even if deceased)
+- "Why are you keeping me here?" (suspicion/paranoia)
+
+High-risk patient content **flagged but not censored**:
+- Self-harm ideation → Route to crisis intervention UI
+- Violence references → Trigger safety protocol guidance
+- Severe agitation → Provide de-escalation coaching
+
+This preserves teachable moments while ensuring safety.
 ```
 
 ### Configuration
