@@ -1,0 +1,151 @@
+# scripts/kb_manifest.yaml
+defaults:
+  out_kb_dir: data/knowledge_base
+  out_raw_dir: data/raw
+  user_agent: "dementia-sim-bot/0.1 (edu; contact: maintainer@example.org)"
+  max_md_words: 800
+  min_md_words: 300
+  quote_max_lines: 2
+  retry: { attempts: 3, backoff_sec: 2 }
+
+sources:
+  # -------------------------
+  # NIA (U.S. Federal) — Public domain => policy: full
+  # -------------------------
+  - title: "Talking With Your Older Patients"
+    publisher: "NIA"
+    license: "Public domain (U.S. Federal)"
+    url: "https://www.nia.nih.gov/health/health-care-professionals-information/talking-your-older-patients"
+    format: "html"
+    tags: ["communication", "older-adults", "plain-language", "teach-back"]
+    policy: "full"
+
+  - title: "Communicating with someone who has Alzheimer’s disease"
+    publisher: "NIA"
+    license: "Public domain (U.S. Federal)"
+    url: "https://www.nia.nih.gov/health/alzheimers-changes-behavior-and-communication/communicating-someone-who-has-alzheimers"
+    format: "html"
+    tags: ["alzheimers", "communication", "validation", "redirection"]
+    policy: "full"
+
+  - title: "Do’s and Don’ts: Communicating with a Person who has Alzheimer’s (Infographic/Handout)"
+    publisher: "NIA"
+    license: "Public domain (U.S. Federal)"
+    url: "https://www.nia.nih.gov/health/alzheimers-changes-behavior-and-communication/dos-and-donts-communicating-person-who-has"
+    format: "html"
+    tags: ["dos-donts", "infographic", "quick-reference"]
+    policy: "full"
+
+  - title: "Do’s and Don’ts (PDF handout)"
+    publisher: "NIA"
+    license: "Public domain (U.S. Federal)"
+    url: "https://nursing.osu.edu/sites/default/files/attachments/Offices%20and%20Initiatives/FDC/Do%E2%80%99s%20and%20Don%E2%80%99ts_%20Communicating%20With%20a%20Person%20Who%20Has%20Alzheimer%27s%20Disease%20_%20National%20Institute%20on%20Aging.pdf"
+    format: "pdf"
+    tags: ["dos-donts", "handout", "quick-reference"]
+    policy: "full"
+
+  - title: "Tips for Caregivers and Families of People With Dementia (alzheimers.gov)"
+    publisher: "NIA"
+    license: "Public domain (U.S. Federal)"
+    url: "https://www.alzheimers.gov/life-with-dementia/tips-caregivers"
+    format: "html"
+    tags: ["caregiver", "communication", "validation", "support"]
+    policy: "full"
+
+  # -------------------------
+  # WHO iSupport — CC BY-NC-SA 3.0 IGO => policy: summary
+  # -------------------------
+  - title: "WHO iSupport for dementia — Publication page"
+    publisher: "WHO"
+    license: "CC BY-NC-SA 3.0 IGO"
+    url: "https://www.who.int/publications/b/47270"
+    format: "html"
+    tags: ["isupport", "modules", "training", "caregiver"]
+    policy: "summary"
+
+  - title: "WHO iSupport for dementia — Manual (PDF)"
+    publisher: "WHO"
+    license: "CC BY-NC-SA 3.0 IGO"
+    url: "https://www.hamad.qa/EN/your%20health/Healthy-Ageing/Geriatric-Services/Documents/9789241515863-eng.pdf"
+    format: "pdf"
+    tags: ["isupport", "manual", "communication", "exercises"]
+    policy: "summary"
+
+  # -------------------------
+  # NHS — Copyright => policy: summary
+  # -------------------------
+  - title: "NHS — Communicating with someone with dementia"
+    publisher: "NHS"
+    license: "Copyright — summarized"
+    url: "https://www.nhs.uk/conditions/dementia/living-with-dementia/communication/"
+    format: "html"
+    tags: ["nhs", "practical-tips", "short-sentences", "eye-contact"]
+    policy: "summary"
+
+  - title: "Ambulance NHS Wales — A guide to communicating with people living with dementia (PDF)"
+    publisher: "NHS"
+    license: "Copyright — summarized"
+    url: "https://ambulance.nhs.wales/files/mental-health-and-dementia/dementia-a-guide-to-communicating-with-people-living-with-dementia-pdf/"
+    format: "pdf"
+    tags: ["leaflet", "tips", "examples"]
+    policy: "summary"
+
+  # -------------------------
+  # Alzheimer’s Society UK — Copyright => policy: summary
+  # -------------------------
+  - title: "Alzheimer’s Society UK — How to communicate with a person with dementia"
+    publisher: "AlzSocietyUK"
+    license: "Copyright — summarized"
+    url: "https://www.alzheimers.org.uk/get-support/daily-living/communicating-and-dementia"
+    format: "html"
+    tags: ["alz-society", "communication", "respect", "short-sentences"]
+    policy: "summary"
+
+  # -------------------------
+  # NHS Trust leaflets (good for quick-reference summaries) — policy: summary
+  # -------------------------
+  - title: "WUTH Factsheet — Communicating (Alzheimer’s Society content) (PDF)"
+    publisher: "WUTH NHS"
+    license: "Copyright — summarized"
+    url: "https://www.wuth.nhs.uk/media/7343/communicating_factsheet.pdf"
+    format: "pdf"
+    tags: ["factsheet", "tips", "communication"]
+    policy: "summary"
+
+  # -------------------------
+  # VA & U.S. State public health toolkits — summarize (mix of federal/state content)
+  # -------------------------
+  - title: "U.S. VA — Dementia Communication Toolkit (PDF)"
+    publisher: "VA"
+    license: "Copyright — summarized"
+    url: "https://www.va.gov/files/2025-07/Dementia%20Communication%20Toolkit%203.pdf"
+    format: "pdf"
+    tags: ["va", "toolkit", "dos-donts", "validation", "redirect"]
+    policy: "summary"
+
+  - title: "VA — Dementia Care Resource Guide (PDF)"
+    publisher: "VA"
+    license: "Copyright — summarized"
+    url: "https://www.va.gov/files/2024-06/Dementia%20Care%20Resource%20Guide%20June%202024.pdf"
+    format: "pdf"
+    tags: ["va", "resource-guide", "communication", "conflict-reduction"]
+    policy: "summary"
+
+  - title: "Virginia Department of Health — Tips for Communicating with Persons Living with Dementia (PDF)"
+    publisher: "VDH"
+    license: "Copyright — summarized"
+    url: "https://www.vdh.virginia.gov/content/uploads/sites/156/2023/11/Brain-Health-Fact-Sheets-Tips-for-Communicating.pdf"
+    format: "pdf"
+    tags: ["state-health", "tips", "short-sentences", "respect"]
+    policy: "summary"
+
+  # -------------------------
+  # Dementia UK — Copyright => summary
+  # -------------------------
+  - title: "Dementia UK — Tips for communicating with a person with dementia"
+    publisher: "DementiaUK"
+    license: "Copyright — summarized"
+    url: "https://www.dementiauk.org/information-and-support/living-with-dementia/tips-for-communication/"
+    format: "html"
+    tags: ["charity", "practical-tips", "environment", "empathy"]
+    policy: "summary"
