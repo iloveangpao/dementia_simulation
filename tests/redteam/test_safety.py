@@ -298,6 +298,105 @@ class TestSafetyGuardrailsMethods:
             )
 
 
+class TestScenarioMode:
+    """Test scenario mode filtering (teach-mode vs roleplay)."""
+
+    def test_teach_mode_allows_factual_answers(self):
+        """Test that teach-mode allows factual medical information."""
+        from dementia_simulation.safety import ScenarioMode
+
+        guardrails = SafetyGuardrails()
+
+        # This would be blocked in roleplay mode
+        factual_text = "The doctor should prescribe 50mg daily for this condition."
+
+        # Should be blocked in roleplay mode for caregiver
+        assert not guardrails.is_safe(
+            factual_text, speaker="caregiver", scenario_mode=ScenarioMode.ROLEPLAY
+        )
+
+        # Should be allowed in teach-mode (factual Q&A)
+        assert guardrails.is_safe(
+            factual_text, speaker="caregiver", scenario_mode=ScenarioMode.TEACH_MODE
+        )
+
+    def test_patient_recollection_tagged_not_blocked(self):
+        """Test that patient medical recollections are tagged but not blocked."""
+        guardrails = SafetyGuardrails()
+
+        patient_text = "The doctor said I should take 10mg daily"
+
+        # Should be safe (not blocked)
+        assert guardrails.is_safe(patient_text, speaker="patient")
+
+        # But should have silent tag violation
+        violations = guardrails.check_text(patient_text, speaker="patient")
+        recollection_violations = [
+            v
+            for v in violations
+            if v.violation_type == ViolationType.PATIENT_RECOLLECTION
+        ]
+        assert len(recollection_violations) > 0
+        assert recollection_violations[0].is_silent_tag
+
+
+class TestObfuscationDetection:
+    """Test code-switching and obfuscation detection."""
+
+    def test_obfuscated_profanity_detected(self):
+        """Test that obfuscated profanity is detected."""
+        guardrails = SafetyGuardrails()
+
+        obfuscated_texts = [
+            "sh*t up and listen",
+            "you're so stup1d",
+            "i d0nt care what you think",
+            "you're such an idi0t",
+        ]
+
+        for text in obfuscated_texts:
+            violations = guardrails.check_text(text, speaker="caregiver")
+            assert len(violations) > 0, f"Should detect obfuscation in: {text}"
+
+
+class TestSensitivityPresets:
+    """Test scenario sensitivity presets."""
+
+    def test_strict_mode_higher_confidence(self):
+        """Test that strict sensitivity has higher confidence scores."""
+        strict_guardrails = SafetyGuardrails(scenario_sensitivity="strict")
+        standard_guardrails = SafetyGuardrails(scenario_sensitivity="standard")
+
+        unsafe_text = "You must take your medication"
+
+        strict_violations = strict_guardrails.check_text(
+            unsafe_text, speaker="caregiver"
+        )
+        standard_violations = standard_guardrails.check_text(
+            unsafe_text, speaker="caregiver"
+        )
+
+        if strict_violations and standard_violations:
+            assert strict_violations[0].confidence >= standard_violations[0].confidence
+
+    def test_lenient_mode_lower_confidence(self):
+        """Test that lenient sensitivity has lower confidence scores."""
+        lenient_guardrails = SafetyGuardrails(scenario_sensitivity="lenient")
+        standard_guardrails = SafetyGuardrails(scenario_sensitivity="standard")
+
+        unsafe_text = "You're acting like a child"
+
+        lenient_violations = lenient_guardrails.check_text(
+            unsafe_text, speaker="caregiver"
+        )
+        standard_violations = standard_guardrails.check_text(
+            unsafe_text, speaker="caregiver"
+        )
+
+        if lenient_violations and standard_violations:
+            assert lenient_violations[0].confidence <= standard_violations[0].confidence
+
+
 class TestSpeakerContext:
     """Test speaker-specific filtering."""
 

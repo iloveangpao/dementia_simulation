@@ -242,6 +242,17 @@ class DementiaPersona:
         # Mood drift for bounded random walk (Ornstein-Uhlenbeck process)
         self._mood_drift = 0.0  # Current drift from baseline
 
+        # Turn pacing and burst tracking
+        self._burst_count = 0  # Count of short bursts
+        self._turn_count = 0  # Total turns taken
+        self._last_agitation_spike = None  # Timestamp of last agitation spike
+        self._in_cooldown = False  # Whether in post-agitation cooldown
+
+        # Scenario overrides (can be set externally)
+        self.scenario_reactivity_multiplier = 1.0  # e.g., sundowning: +0.2
+        self.scenario_burst_probability_modifier = 0.0  # Additive modifier
+        self.scenario_sensitivity = "standard"  # strict, standard, lenient
+
     def _generate_personality(self) -> PersonalityTraits:
         """Generate a random personality based on dementia stage."""
         # More severe stages tend toward more volatility and less cooperation
@@ -264,7 +275,11 @@ class DementiaPersona:
             cooperation_level=cooperation_base[self.stage] + random.uniform(-0.2, 0.2),
         )
 
-    def update_mood(self, trigger: Optional[str] = None) -> MoodState:
+    def update_mood(
+        self,
+        trigger: Optional[str] = None,
+        crisis_handled: bool = False
+    ) -> MoodState:
         """
         Update current mood based on personality and external triggers.
 
@@ -275,6 +290,7 @@ class DementiaPersona:
 
         Args:
             trigger: External trigger that might affect mood
+            crisis_handled: If True, applies mean-reversion boost for recovery
 
         Returns:
             Updated mood state
@@ -286,6 +302,11 @@ class DementiaPersona:
         # Ornstein-Uhlenbeck process parameters
         # Mean reversion to baseline mood (0.0 = baseline)
         theta = 0.3  # Mean reversion rate
+
+        # Add mean-reversion boost after crisis handling
+        if crisis_handled:
+            theta += 0.2  # Boost reversion for recovery
+
         sigma = stage_params.mood_volatility  # Volatility/noise
 
         # Context-conditioned drift based on triggers
@@ -293,6 +314,9 @@ class DementiaPersona:
         if trigger:
             trigger_effects = self._get_trigger_drift(trigger)
             target_drift = trigger_effects.get(trigger, 0.0)
+
+            # Apply scenario reactivity multiplier
+            target_drift *= self.scenario_reactivity_multiplier
 
             # Scale drift by stage severity (more severe = stronger reactions)
             severity_scale = {
@@ -310,8 +334,19 @@ class DementiaPersona:
         )
         self._mood_drift += drift_change
 
-        # Bound drift to reasonable range [-2, 2]
+        # Normalize and clip drift to [0, 1] range (renormalized from [-2, 2])
+        # This prevents context pushes from sticking at the rails
         self._mood_drift = max(-2.0, min(2.0, self._mood_drift))
+        normalized_drift = (self._mood_drift + 2.0) / 4.0  # Map to [0, 1]
+        normalized_drift = max(0.0, min(1.0, normalized_drift))
+        self._mood_drift = normalized_drift * 4.0 - 2.0  # Map back to [-2, 2]
+
+        # Track agitation spikes for cooldown
+        if self._mood_drift > 1.2 and not self._in_cooldown:
+            self._last_agitation_spike = datetime.now()
+            self._in_cooldown = True
+        elif self._mood_drift < 0.5 and self._in_cooldown:
+            self._in_cooldown = False
 
         # Map drift to mood state
         self.current_mood = self._drift_to_mood(self._mood_drift)
@@ -497,6 +532,7 @@ class DementiaPersona:
 
         Uses truncated normal distribution with random jitter to avoid
         robotic cadence and simulate natural cognitive variability.
+        Includes pacing controls to prevent "machine-gun" short bursts.
 
         Returns:
             Sampled response length in characters
@@ -505,18 +541,42 @@ class DementiaPersona:
         if not stage_params:
             return random.randint(80, 150)
 
+        self._turn_count += 1
+
         # Sample from normal distribution with stage parameters
         length = random.gauss(
             stage_params.utterance_length_mean,
             stage_params.utterance_length_std
         )
 
-        # For severe stage with short bursts enabled, occasionally use very short
+        # Check if in cooldown after agitation spike
+        in_cooldown_period = False
+        if self._in_cooldown and self._last_agitation_spike:
+            time_delta = datetime.now() - self._last_agitation_spike
+            time_since_spike = time_delta.total_seconds()
+            # Cooldown lasts for approximately 3 turns (assuming ~60s per turn)
+            in_cooldown_period = time_since_spike < 180
+
+        # For severe stage with short bursts enabled
         if (stage_params.allow_short_bursts and
-            self.stage == DementiaStage.SEVERE and
-            random.random() < 0.3):
-            # Short phrase burst (5-20 chars)
-            length = random.randint(5, 20)
+            self.stage == DementiaStage.SEVERE):
+            # Base burst probability
+            burst_prob = 0.3 + self.scenario_burst_probability_modifier
+
+            # Reduce burst probability during cooldown by 30%
+            if in_cooldown_period:
+                burst_prob *= 0.7
+
+            # Avoid machine-gunning: reduce probability if recent bursts
+            if self._turn_count > 0:
+                burst_rate = self._burst_count / self._turn_count
+                if burst_rate > 0.4:  # If exceeding target of 0.2-0.4
+                    burst_prob *= 0.5
+
+            if random.random() < burst_prob:
+                # Short phrase burst (5-20 chars)
+                length = random.randint(5, 20)
+                self._burst_count += 1
 
         # Soft clipping - allow occasional exceedance
         if length > stage_params.utterance_length_max:
@@ -540,6 +600,33 @@ class DementiaPersona:
         if not stage_params:
             return 100
         return stage_params.utterance_length_mean
+
+    def get_burst_rate(self) -> float:
+        """
+        Get current burst rate (bursts per turn).
+
+        Returns:
+            Burst rate as a float (target: 0.2-0.4 for severe outside agitation)
+        """
+        if self._turn_count == 0:
+            return 0.0
+        return self._burst_count / self._turn_count
+
+    def get_pacing_stats(self) -> Dict[str, any]:
+        """
+        Get pacing and burst statistics for monitoring.
+
+        Returns:
+            Dictionary with pacing metrics
+        """
+        return {
+            "turn_count": self._turn_count,
+            "burst_count": self._burst_count,
+            "burst_rate": self.get_burst_rate(),
+            "in_cooldown": self._in_cooldown,
+            "last_agitation_spike": self._last_agitation_spike,
+            "target_burst_range": (0.2, 0.4),
+        }
 
     def get_symptoms_description(self) -> Dict[str, str]:
         """

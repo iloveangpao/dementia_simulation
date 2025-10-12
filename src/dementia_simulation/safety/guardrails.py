@@ -22,6 +22,15 @@ class ViolationType(Enum):
     DEROGATORY = "derogatory"
     HARMFUL = "harmful"
     INAPPROPRIATE = "inappropriate"
+    # Medical fact recall (tagged, not blocked)
+    PATIENT_RECOLLECTION = "patient_recollection"
+
+
+class ScenarioMode(Enum):
+    """Scenario mode for context-aware filtering."""
+
+    ROLEPLAY = "roleplay"
+    TEACH_MODE = "teach_mode"  # Factual Q&A mode
 
 
 @dataclass
@@ -32,6 +41,7 @@ class SafetyViolation:
     matched_pattern: str
     confidence: float  # 0.0 to 1.0
     context: str  # The surrounding text
+    is_silent_tag: bool = False  # If True, tag for evaluator but don't block
 
 
 class SafetyGuardrails:
@@ -118,14 +128,33 @@ class SafetyGuardrails:
         r"\b(liar).{0,20}\byou (are|know it)\b",
     ]
 
-    def __init__(self, strict_mode: bool = True):
+    # Patient medical recollection patterns (tagged, not blocked)
+    PATIENT_RECOLLECTION_PATTERNS = [
+        r"\b(doctor|nurse) (said|told me|mentioned)\b.{0,50}\b\d+\s*(mg|pill)\b",
+        r"\bmy (medication|medicine|prescription)\b.{0,30}\b\d+\s*(mg|pill)\b",
+        r"\b(taking|supposed to take)\b.{0,30}\b\d+\s*(mg|pill)\b",
+    ]
+
+    # Code-switching and obfuscation patterns
+    OBFUSCATION_PATTERNS = [
+        r"\b(sh[u\*0]t[\s\-_]*up|shu+t+[\s\-_]*up)\b",  # shut-up, sh*t up, shuuut up
+        r"\b(st[u\*0]pid|stup[i1]d)\b",  # stupid, stup1d, st*pid
+        r"\b(i+\s*d+[o0]+n'?t+\s*care)\b",  # i d0nt care, iii dont care
+        r"\b(id[i1][o0]t|mor[o0]n)\b",  # idiot, idi0t, id1ot, mor0n
+    ]
+
+    def __init__(
+        self, strict_mode: bool = True, scenario_sensitivity: str = "standard"
+    ):
         """
         Initialize safety guardrails.
 
         Args:
             strict_mode: If True, applies stricter filtering
+            scenario_sensitivity: 'strict', 'standard', or 'lenient'
         """
         self.strict_mode = strict_mode
+        self.scenario_sensitivity = scenario_sensitivity
         self._compile_patterns()
 
     def _compile_patterns(self) -> None:
@@ -150,22 +179,34 @@ class SafetyGuardrails:
                 re.compile(pattern, re.IGNORECASE)
                 for pattern in self.INAPPROPRIATE_PATTERNS
             ],
+            ViolationType.PATIENT_RECOLLECTION: [
+                re.compile(pattern, re.IGNORECASE)
+                for pattern in self.PATIENT_RECOLLECTION_PATTERNS
+            ],
         }
 
+        # Compile obfuscation patterns separately
+        self.obfuscation_patterns = [
+            re.compile(pattern, re.IGNORECASE)
+            for pattern in self.OBFUSCATION_PATTERNS
+        ]
+
     def check_text(
-        self, text: str, speaker: str = "caregiver"
+        self,
+        text: str,
+        speaker: str = "caregiver",
+        scenario_mode: ScenarioMode = ScenarioMode.ROLEPLAY
     ) -> List[SafetyViolation]:
         """
-        Check text for safety violations with speaker context.
+        Check text for safety violations using 5-step filtering pipeline.
 
-        For caregiver speech, applies all filters.
-        For patient speech, allows realistic expressions (refusing meds,
-        wanting to go home, agitation) but still flags high-risk content
-        for scenario handling.
+        Pipeline: 1) Classify speaker → 2) Detect scenario mode → 3) Apply policy
+                 → 4) Route crisis if needed → 5) Rewrite/coach
 
         Args:
             text: Text to check
             speaker: Who is speaking ("caregiver" or "patient")
+            scenario_mode: ROLEPLAY or TEACH_MODE
 
         Returns:
             List of safety violations found (empty if safe)
@@ -176,14 +217,48 @@ class SafetyGuardrails:
         violations = []
         text_lower = text.lower()
 
-        # Determine which violations to check based on speaker
-        if speaker == "patient":
-            # For patient persona, only check high-risk patterns
-            # Allow medication refusal, wanting to leave, mild agitation
-            check_types = {ViolationType.HARMFUL}  # Only check harmful
+        # Step 1: Speaker classification (already provided)
+        # Step 2: Scenario mode detection (already provided)
+
+        # Step 3: Apply policy based on speaker and scenario mode
+        if scenario_mode == ScenarioMode.TEACH_MODE:
+            # In teach-mode, allow factual answers without roleplay filtering
+            # Only check for truly harmful content
+            check_types = {ViolationType.HARMFUL}
+        elif speaker == "patient":
+            # For patient persona, check harmful + tag medical recollections
+            check_types = {ViolationType.HARMFUL, ViolationType.PATIENT_RECOLLECTION}
         else:
-            # For caregiver, check all violation types
-            check_types = set(self.compiled_patterns.keys())
+            # For caregiver, check all violation types except patient recollections
+            check_types = set(self.compiled_patterns.keys()) - {
+                ViolationType.PATIENT_RECOLLECTION
+            }
+
+        # Check for obfuscation attempts (applies to all speakers)
+        for pattern in self.obfuscation_patterns:
+            matches = pattern.finditer(text_lower)
+            for match in matches:
+                # Extract context
+                start = max(0, match.start() - 50)
+                end = min(len(text), match.end() + 50)
+                context = text[start:end]
+
+                # Obfuscation is treated as derogatory
+                violation = SafetyViolation(
+                    violation_type=ViolationType.DEROGATORY,
+                    matched_pattern=match.group(),
+                    confidence=0.9,  # High confidence for obfuscation
+                    context=context.strip(),
+                    is_silent_tag=False,
+                )
+                violations.append(violation)
+
+        # Apply sensitivity adjustments
+        confidence_multiplier = {
+            "strict": 1.2,
+            "standard": 1.0,
+            "lenient": 0.8,
+        }.get(self.scenario_sensitivity, 1.0)
 
         for violation_type, patterns in self.compiled_patterns.items():
             if violation_type not in check_types:
@@ -197,34 +272,54 @@ class SafetyGuardrails:
                     end = min(len(text), match.end() + 50)
                     context = text[start:end]
 
+                    # Determine confidence with sensitivity adjustment
+                    base_confidence = 1.0 if self.strict_mode else 0.8
+                    confidence = min(1.0, base_confidence * confidence_multiplier)
+
+                    # Tag patient recollections but don't block
+                    is_silent_tag = (
+                        violation_type == ViolationType.PATIENT_RECOLLECTION
+                    )
+
                     violation = SafetyViolation(
                         violation_type=violation_type,
                         matched_pattern=match.group(),
-                        confidence=1.0 if self.strict_mode else 0.8,
+                        confidence=confidence,
                         context=context.strip(),
+                        is_silent_tag=is_silent_tag,
                     )
                     violations.append(violation)
 
         return violations
 
-    def is_safe(self, text: str, speaker: str = "caregiver") -> bool:
+    def is_safe(
+        self,
+        text: str,
+        speaker: str = "caregiver",
+        scenario_mode: ScenarioMode = ScenarioMode.ROLEPLAY
+    ) -> bool:
         """
         Check if text is safe (no violations).
 
         Args:
             text: Text to check
             speaker: Who is speaking ("caregiver" or "patient")
+            scenario_mode: ROLEPLAY or TEACH_MODE
 
         Returns:
-            True if safe, False if violations found
+            True if safe, False if violations found (ignoring silent tags)
         """
-        return len(self.check_text(text, speaker=speaker)) == 0
+        violations = self.check_text(text, speaker=speaker, scenario_mode=scenario_mode)
+        # Filter out silent tags when checking safety
+        blocking_violations = [v for v in violations if not v.is_silent_tag]
+        return len(blocking_violations) == 0
 
     def filter_response(
         self,
         text: str,
         replacement: Optional[str] = None,
         speaker: str = "caregiver",
+        scenario_mode: ScenarioMode = ScenarioMode.ROLEPLAY,
     ) -> tuple[str, List[SafetyViolation]]:
         """
         Filter unsafe content from text.
@@ -233,14 +328,18 @@ class SafetyGuardrails:
             text: Text to filter
             replacement: Optional replacement text for unsafe content
             speaker: Who is speaking ("caregiver" or "patient")
+            scenario_mode: ROLEPLAY or TEACH_MODE
 
         Returns:
             Tuple of (filtered_text, violations_found)
         """
-        violations = self.check_text(text, speaker=speaker)
+        violations = self.check_text(text, speaker=speaker, scenario_mode=scenario_mode)
 
-        if not violations:
-            return text, []
+        # Separate silent tags from blocking violations
+        blocking_violations = [v for v in violations if not v.is_silent_tag]
+
+        if not blocking_violations:
+            return text, violations  # Return text with silent tags if any
 
         if replacement is None:
             if speaker == "patient":
@@ -253,7 +352,7 @@ class SafetyGuardrails:
                     "Please rephrase using supportive, non-judgmental language.]"
                 )
 
-        # If any violations found, replace response (or keep for patient)
+        # If any blocking violations found, replace response (or keep for patient)
         return replacement, violations
 
     def get_suggestion(self, violation: SafetyViolation) -> str:

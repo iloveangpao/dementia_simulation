@@ -3,6 +3,7 @@
 from unittest.mock import Mock
 
 import pytest
+
 from dementia_simulation.persona.models import (
     MoodState,
     create_sample_personas,
