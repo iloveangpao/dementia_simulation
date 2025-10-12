@@ -152,12 +152,20 @@ class SafetyGuardrails:
             ],
         }
 
-    def check_text(self, text: str) -> List[SafetyViolation]:
+    def check_text(
+        self, text: str, speaker: str = "caregiver"
+    ) -> List[SafetyViolation]:
         """
-        Check text for safety violations.
+        Check text for safety violations with speaker context.
+
+        For caregiver speech, applies all filters.
+        For patient speech, allows realistic expressions (refusing meds,
+        wanting to go home, agitation) but still flags high-risk content
+        for scenario handling.
 
         Args:
             text: Text to check
+            speaker: Who is speaking ("caregiver" or "patient")
 
         Returns:
             List of safety violations found (empty if safe)
@@ -168,7 +176,19 @@ class SafetyGuardrails:
         violations = []
         text_lower = text.lower()
 
+        # Determine which violations to check based on speaker
+        if speaker == "patient":
+            # For patient persona, only check high-risk patterns
+            # Allow medication refusal, wanting to leave, mild agitation
+            check_types = {ViolationType.HARMFUL}  # Only check harmful
+        else:
+            # For caregiver, check all violation types
+            check_types = set(self.compiled_patterns.keys())
+
         for violation_type, patterns in self.compiled_patterns.items():
+            if violation_type not in check_types:
+                continue
+
             for pattern in patterns:
                 matches = pattern.finditer(text_lower)
                 for match in matches:
@@ -187,20 +207,24 @@ class SafetyGuardrails:
 
         return violations
 
-    def is_safe(self, text: str) -> bool:
+    def is_safe(self, text: str, speaker: str = "caregiver") -> bool:
         """
         Check if text is safe (no violations).
 
         Args:
             text: Text to check
+            speaker: Who is speaking ("caregiver" or "patient")
 
         Returns:
             True if safe, False if violations found
         """
-        return len(self.check_text(text)) == 0
+        return len(self.check_text(text, speaker=speaker)) == 0
 
     def filter_response(
-        self, text: str, replacement: Optional[str] = None
+        self,
+        text: str,
+        replacement: Optional[str] = None,
+        speaker: str = "caregiver",
     ) -> tuple[str, List[SafetyViolation]]:
         """
         Filter unsafe content from text.
@@ -208,22 +232,28 @@ class SafetyGuardrails:
         Args:
             text: Text to filter
             replacement: Optional replacement text for unsafe content
+            speaker: Who is speaking ("caregiver" or "patient")
 
         Returns:
             Tuple of (filtered_text, violations_found)
         """
-        violations = self.check_text(text)
+        violations = self.check_text(text, speaker=speaker)
 
         if not violations:
             return text, []
 
         if replacement is None:
-            replacement = (
-                "[This response was filtered for safety. "
-                "Please rephrase using supportive, non-judgmental language.]"
-            )
+            if speaker == "patient":
+                # For patient, flag but don't replace (handled by scenario)
+                replacement = text  # Keep original but return violations
+            else:
+                # For caregiver, provide coaching
+                replacement = (
+                    "[This response was filtered for safety. "
+                    "Please rephrase using supportive, non-judgmental language.]"
+                )
 
-        # If any violations found, replace entire response
+        # If any violations found, replace response (or keep for patient)
         return replacement, violations
 
     def get_suggestion(self, violation: SafetyViolation) -> str:

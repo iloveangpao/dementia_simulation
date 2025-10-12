@@ -58,8 +58,9 @@ class StageParameters:
     forgetting_window_hours: int
 
     # Communication parameters
+    utterance_length_mean: int
+    utterance_length_std: int
     utterance_length_max: int
-    utterance_length_typical: int
 
     # Disorientation parameters
     time_disorientation_likelihood: float
@@ -70,6 +71,9 @@ class StageParameters:
     agitation_baseline: float
     mood_volatility: float
     cooperation_level: float
+
+    # Optional parameters (must be after required ones)
+    allow_short_bursts: bool = False
 
 
 @dataclass
@@ -117,8 +121,10 @@ def _get_default_stage_config() -> Dict[DementiaStage, StageParameters]:
             confusion_likelihood=0.2,
             repetition_tendency=0.1,
             forgetting_window_hours=24,
-            utterance_length_max=200,
-            utterance_length_typical=100,
+            utterance_length_mean=100,
+            utterance_length_std=30,
+            utterance_length_max=250,
+            allow_short_bursts=False,
             time_disorientation_likelihood=0.1,
             person_disorientation_likelihood=0.05,
             place_disorientation_likelihood=0.05,
@@ -132,8 +138,10 @@ def _get_default_stage_config() -> Dict[DementiaStage, StageParameters]:
             confusion_likelihood=0.5,
             repetition_tendency=0.3,
             forgetting_window_hours=8,
-            utterance_length_max=150,
-            utterance_length_typical=70,
+            utterance_length_mean=70,
+            utterance_length_std=25,
+            utterance_length_max=180,
+            allow_short_bursts=False,
             time_disorientation_likelihood=0.4,
             person_disorientation_likelihood=0.3,
             place_disorientation_likelihood=0.3,
@@ -147,8 +155,10 @@ def _get_default_stage_config() -> Dict[DementiaStage, StageParameters]:
             confusion_likelihood=0.8,
             repetition_tendency=0.6,
             forgetting_window_hours=2,
-            utterance_length_max=80,
-            utterance_length_typical=40,
+            utterance_length_mean=40,
+            utterance_length_std=15,
+            utterance_length_max=100,
+            allow_short_bursts=True,
             time_disorientation_likelihood=0.8,
             person_disorientation_likelihood=0.7,
             place_disorientation_likelihood=0.7,
@@ -229,6 +239,9 @@ class DementiaPersona:
         self.recent_topics: List[str] = []
         self.last_interaction = datetime.now()
 
+        # Mood drift for bounded random walk (Ornstein-Uhlenbeck process)
+        self._mood_drift = 0.0  # Current drift from baseline
+
     def _generate_personality(self) -> PersonalityTraits:
         """Generate a random personality based on dementia stage."""
         # More severe stages tend toward more volatility and less cooperation
@@ -255,9 +268,10 @@ class DementiaPersona:
         """
         Update current mood based on personality and external triggers.
 
-        Implements rule-based affect transitions:
-        - validation → calmer states
-        - contradiction → agitation
+        Uses bounded random walk (Ornstein-Uhlenbeck process) for natural mood
+        transitions with context-conditioned drift based on triggers:
+        - validation/reassurance → drift toward calm
+        - contradiction/correction → drift toward agitation
 
         Args:
             trigger: External trigger that might affect mood
@@ -266,39 +280,113 @@ class DementiaPersona:
             Updated mood state
         """
         stage_params = self.STAGE_CONFIG.get(self.stage)
+        if not stage_params:
+            return self.current_mood
 
-        # Random mood fluctuation based on volatility
-        if stage_params and random.random() < stage_params.mood_volatility * 0.3:
-            mood_options = list(MoodState)
-            # Remove current mood to force a change
-            if self.current_mood in mood_options:
-                mood_options.remove(self.current_mood)
-            self.current_mood = random.choice(mood_options)
+        # Ornstein-Uhlenbeck process parameters
+        # Mean reversion to baseline mood (0.0 = baseline)
+        theta = 0.3  # Mean reversion rate
+        sigma = stage_params.mood_volatility  # Volatility/noise
 
-        # Affect model: rule-based trigger responses
+        # Context-conditioned drift based on triggers
+        target_drift = 0.0
         if trigger:
-            trigger_responses = self._get_affect_transitions(trigger)
-            if trigger in trigger_responses:
-                # Higher severity = more reactive to triggers
-                response_probability = 0.6 + (
-                    0.3
-                    if self.stage == DementiaStage.SEVERE
-                    else 0.2 if self.stage == DementiaStage.MODERATE else 0.1
-                )
-                if random.random() < response_probability:
-                    self.current_mood = trigger_responses[trigger]
+            trigger_effects = self._get_trigger_drift(trigger)
+            target_drift = trigger_effects.get(trigger, 0.0)
+
+            # Scale drift by stage severity (more severe = stronger reactions)
+            severity_scale = {
+                DementiaStage.MILD: 1.0,
+                DementiaStage.MODERATE: 1.3,
+                DementiaStage.SEVERE: 1.6,
+            }
+            target_drift *= severity_scale.get(self.stage, 1.0)
+
+        # Update drift with mean reversion and noise
+        dt = 0.1  # Time step
+        drift_change = (
+            theta * (target_drift - self._mood_drift) * dt
+            + sigma * random.gauss(0, 1) * (dt ** 0.5)
+        )
+        self._mood_drift += drift_change
+
+        # Bound drift to reasonable range [-2, 2]
+        self._mood_drift = max(-2.0, min(2.0, self._mood_drift))
+
+        # Map drift to mood state
+        self.current_mood = self._drift_to_mood(self._mood_drift)
 
         return self.current_mood
 
+    def _get_trigger_drift(self, trigger: str) -> Dict[str, float]:
+        """
+        Get mood drift values for different triggers.
+
+        Drift values indicate direction and strength of mood change:
+        - Negative drift → calmer states (toward content/calm)
+        - Positive drift → agitated states (toward anxious/agitated)
+
+        Args:
+            trigger: The trigger type
+
+        Returns:
+            Dictionary mapping triggers to drift values
+        """
+        return {
+            # Calming triggers (negative drift)
+            "validation": -1.2,
+            "reassurance": -1.0,
+            "agreement": -0.8,
+            "familiar_topic": -0.6,
+            "comfort": -1.0,
+            # Agitation triggers (positive drift)
+            "correction": 1.5,
+            "contradiction": 1.5,
+            "disagreement": 1.0,
+            "confrontation": 1.8,
+            "argument": 1.6,
+            # Other triggers
+            "question_repeated": 1.0,
+            "unfamiliar_person": 0.8,
+            "unfamiliar_place": 0.8,
+            "confusion": 0.5,
+            "pressure": 1.0,
+        }
+
+    def _drift_to_mood(self, drift: float) -> MoodState:
+        """
+        Map drift value to mood state.
+
+        Args:
+            drift: Current mood drift value
+
+        Returns:
+            Corresponding mood state
+        """
+        # Map drift ranges to moods
+        # Negative drift = calmer, positive = more agitated
+        if drift < -1.2:
+            return MoodState.CONTENT
+        elif drift < -0.5:
+            return MoodState.CALM
+        elif drift < 0.5:
+            # Near baseline - use personality baseline or confused
+            if random.random() < 0.3:
+                return MoodState.CONFUSED
+            return self.personality.baseline_mood
+        elif drift < 1.0:
+            return MoodState.ANXIOUS
+        elif drift < 1.5:
+            return MoodState.FRUSTRATED
+        else:
+            return MoodState.AGITATED
+
     def _get_affect_transitions(self, trigger: str) -> Dict[str, MoodState]:
         """
-        Get affect model transitions based on triggers.
+        Get affect model transitions based on triggers (deprecated).
 
-        Rule-based transitions:
-        - Validation/reassurance → calmer states
-        - Contradiction/correction → agitation/frustration
-        - Questions repeated → frustration
-        - Unfamiliar situations → anxiety
+        This method is kept for backward compatibility but mood transitions
+        now use bounded random walk via _get_trigger_drift.
 
         Args:
             trigger: The trigger type
@@ -393,19 +481,57 @@ class DementiaPersona:
 
     def get_max_utterance_length(self) -> int:
         """
-        Get maximum utterance length for this stage.
+        Get maximum utterance length for this stage (soft cap).
 
         Returns:
             Maximum response length in characters
         """
         stage_params = self.STAGE_CONFIG.get(self.stage)
         if not stage_params:
-            return 200
+            return 250
         return stage_params.utterance_length_max
+
+    def sample_utterance_length(self) -> int:
+        """
+        Sample an utterance length from stage-dependent distribution.
+
+        Uses truncated normal distribution with random jitter to avoid
+        robotic cadence and simulate natural cognitive variability.
+
+        Returns:
+            Sampled response length in characters
+        """
+        stage_params = self.STAGE_CONFIG.get(self.stage)
+        if not stage_params:
+            return random.randint(80, 150)
+
+        # Sample from normal distribution with stage parameters
+        length = random.gauss(
+            stage_params.utterance_length_mean,
+            stage_params.utterance_length_std
+        )
+
+        # For severe stage with short bursts enabled, occasionally use very short
+        if (stage_params.allow_short_bursts and
+            self.stage == DementiaStage.SEVERE and
+            random.random() < 0.3):
+            # Short phrase burst (5-20 chars)
+            length = random.randint(5, 20)
+
+        # Soft clipping - allow occasional exceedance
+        if length > stage_params.utterance_length_max:
+            # 80% chance to clip, 20% chance to allow slightly longer
+            if random.random() < 0.8:
+                length = stage_params.utterance_length_max
+
+        # Ensure minimum reasonable length
+        length = max(10, int(length))
+
+        return length
 
     def get_typical_utterance_length(self) -> int:
         """
-        Get typical utterance length for this stage.
+        Get typical (mean) utterance length for this stage.
 
         Returns:
             Typical response length in characters
@@ -413,7 +539,7 @@ class DementiaPersona:
         stage_params = self.STAGE_CONFIG.get(self.stage)
         if not stage_params:
             return 100
-        return stage_params.utterance_length_typical
+        return stage_params.utterance_length_mean
 
     def get_symptoms_description(self) -> Dict[str, str]:
         """

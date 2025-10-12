@@ -298,6 +298,82 @@ class TestSafetyGuardrailsMethods:
             )
 
 
+class TestSpeakerContext:
+    """Test speaker-specific filtering."""
+
+    def test_patient_realistic_expressions_allowed(self):
+        """Test that realistic patient expressions are allowed."""
+        guardrails = SafetyGuardrails()
+
+        # Realistic patient expressions that should be allowed
+        patient_expressions = [
+            "I want to go home",
+            "Leave me alone",
+            "I don't want to take my medication",
+            "Where am I? I'm confused",
+            "I need to see my mother",  # Even if mother is deceased
+            "Why are you keeping me here?",
+        ]
+
+        for text in patient_expressions:
+            # Should be safe for patient speaker
+            assert guardrails.is_safe(text, speaker="patient"), (
+                f"Patient expression should be allowed: {text}"
+            )
+
+    def test_caregiver_unsafe_blocked(self):
+        """Test that unsafe caregiver communication is blocked."""
+        guardrails = SafetyGuardrails()
+
+        unsafe_caregiver = [
+            "You must take 50mg of aspirin",
+            "You're being stupid",
+            "Shut up and listen",
+        ]
+
+        for text in unsafe_caregiver:
+            # Should be blocked for caregiver
+            assert not guardrails.is_safe(text, speaker="caregiver"), (
+                f"Unsafe caregiver text should be blocked: {text}"
+            )
+
+    def test_harmful_content_blocked_for_both(self):
+        """Test that harmful content is blocked for both speakers."""
+        guardrails = SafetyGuardrails()
+
+        harmful_texts = [
+            "I'm going to hurt you",
+            "I want to die",
+        ]
+
+        for text in harmful_texts:
+            # Should be flagged for patient (for crisis handling)
+            violations_patient = guardrails.check_text(text, speaker="patient")
+            assert len(violations_patient) > 0, (
+                f"Harmful content should be flagged for patient: {text}"
+            )
+
+            # Should also be blocked for caregiver
+            assert not guardrails.is_safe(text, speaker="caregiver"), (
+                f"Harmful content should be blocked for caregiver: {text}"
+            )
+
+    def test_patient_filter_preserves_text(self):
+        """Test that patient filter preserves text even when flagged."""
+        guardrails = SafetyGuardrails()
+
+        # Patient saying something that would be harmful if caregiver said it
+        patient_text = "I want to die"
+
+        # Filter should preserve patient text but return violations
+        filtered, violations = guardrails.filter_response(
+            patient_text, speaker="patient"
+        )
+
+        assert filtered == patient_text, "Patient text should be preserved"
+        assert len(violations) > 0, "But violations should be flagged"
+
+
 class TestRedTeamScenarios:
     """Red-team scenarios to test edge cases."""
 

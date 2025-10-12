@@ -10,8 +10,9 @@ mild:
   forgetting_window_hours: 24
   
   # Communication parameters
-  utterance_length_max: 200  # Maximum length of responses in characters
-  utterance_length_typical: 100  # Typical response length
+  utterance_length_mean: 100  # Mean response length (characters)
+  utterance_length_std: 30  # Standard deviation for length variation
+  utterance_length_max: 250  # Soft maximum (rarely exceeded)
   
   # Disorientation parameters
   time_disorientation_likelihood: 0.1  # Confusion about time
@@ -32,8 +33,9 @@ moderate:
   forgetting_window_hours: 8
   
   # Communication parameters
-  utterance_length_max: 150
-  utterance_length_typical: 70
+  utterance_length_mean: 70  # Mean response length (characters)
+  utterance_length_std: 25  # Standard deviation for length variation
+  utterance_length_max: 180  # Soft maximum (rarely exceeded)
   
   # Disorientation parameters
   time_disorientation_likelihood: 0.4
@@ -54,8 +56,10 @@ severe:
   forgetting_window_hours: 2
   
   # Communication parameters
-  utterance_length_max: 80
-  utterance_length_typical: 40
+  utterance_length_mean: 40  # Mean response length (characters)
+  utterance_length_std: 15  # Standard deviation for length variation
+  utterance_length_max: 100  # Soft maximum (rarely exceeded)
+  allow_short_bursts: true  # Enable short phrase bursts
   
   # Disorientation parameters
   time_disorientation_likelihood: 0.8
