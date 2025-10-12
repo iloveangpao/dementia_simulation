@@ -1,0 +1,72 @@
+# Per-stage configuration for dementia simulation
+# Defines parameters that control persona behavior based on dementia severity
+
+mild:
+  # Memory parameters
+  short_term_retention_minutes: 30
+  long_term_clarity_percent: 85
+  confusion_likelihood: 0.2
+  repetition_tendency: 0.1
+  forgetting_window_hours: 24
+  
+  # Communication parameters
+  utterance_length_mean: 100  # Mean response length (characters)
+  utterance_length_std: 30  # Standard deviation for length variation
+  utterance_length_max: 250  # Soft maximum (rarely exceeded)
+  
+  # Disorientation parameters
+  time_disorientation_likelihood: 0.1  # Confusion about time
+  person_disorientation_likelihood: 0.05  # Confusion about people
+  place_disorientation_likelihood: 0.05  # Confusion about location
+  
+  # Behavioral parameters
+  agitation_baseline: 0.1  # Base probability of agitation
+  mood_volatility: 0.2  # How quickly mood changes
+  cooperation_level: 0.8  # Willingness to cooperate
+
+moderate:
+  # Memory parameters
+  short_term_retention_minutes: 10
+  long_term_clarity_percent: 60
+  confusion_likelihood: 0.5
+  repetition_tendency: 0.3
+  forgetting_window_hours: 8
+  
+  # Communication parameters
+  utterance_length_mean: 70  # Mean response length (characters)
+  utterance_length_std: 25  # Standard deviation for length variation
+  utterance_length_max: 180  # Soft maximum (rarely exceeded)
+  
+  # Disorientation parameters
+  time_disorientation_likelihood: 0.4
+  person_disorientation_likelihood: 0.3
+  place_disorientation_likelihood: 0.3
+  
+  # Behavioral parameters
+  agitation_baseline: 0.3
+  mood_volatility: 0.4
+  cooperation_level: 0.6
+
+severe:
+  # Memory parameters
+  short_term_retention_minutes: 2
+  long_term_clarity_percent: 25
+  confusion_likelihood: 0.8
+  repetition_tendency: 0.6
+  forgetting_window_hours: 2
+  
+  # Communication parameters
+  utterance_length_mean: 40  # Mean response length (characters)
+  utterance_length_std: 15  # Standard deviation for length variation
+  utterance_length_max: 100  # Soft maximum (rarely exceeded)
+  allow_short_bursts: true  # Enable short phrase bursts
+  
+  # Disorientation parameters
+  time_disorientation_likelihood: 0.8
+  person_disorientation_likelihood: 0.7
+  place_disorientation_likelihood: 0.7
+  
+  # Behavioral parameters
+  agitation_baseline: 0.5
+  mood_volatility: 0.6
+  cooperation_level: 0.4

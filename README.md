@@ -243,6 +243,50 @@ The system uses the `DementiaPersona` class which provides realistic simulation 
 - **Symptom Descriptions**: Detailed descriptions of memory, orientation, emotion, and insight symptoms for each stage
 - **Methods**: `update_mood()`, `should_remember()`, `should_be_confused()`, `should_repeat()`, `get_symptoms_description()`, `add_to_conversation_history()`, `get_context_prompt()`
 
+### 🧠 Stage Parameters & Configuration
+
+The system now includes comprehensive per-stage configuration loaded from `stage_config.yaml`:
+
+- **Memory Parameters**: 
+  - Short-term retention (30min → 10min → 2min)
+  - Long-term clarity (85% → 60% → 25%)
+  - Forgetting window (24h → 8h → 2h)
+  - Confusion likelihood (0.2 → 0.5 → 0.8)
+  - Repetition tendency (0.1 → 0.3 → 0.6)
+
+- **Communication Parameters**:
+  - Utterance length limits (200 → 150 → 80 characters max)
+  - Typical response length decreases with severity
+
+- **Disorientation Parameters**:
+  - Time disorientation (0.1 → 0.4 → 0.8)
+  - Person disorientation (0.05 → 0.3 → 0.7)
+  - Place disorientation (0.05 → 0.3 → 0.7)
+
+- **Behavioral Parameters**:
+  - Agitation baseline increases with severity
+  - Mood volatility increases with stage
+  - Cooperation level decreases with stage
+
+Tests verify that **mild < moderate < severe** for all forgetting and disorientation parameters.
+
+### 😠 Affect Model
+
+Rule-based mood transitions simulate realistic emotional responses:
+
+- **Calming triggers** → Calm/Content states:
+  - `validation`, `reassurance`, `agreement`, `comfort`
+  
+- **Agitation triggers** → Agitated/Frustrated states:
+  - `contradiction`, `correction`, `confrontation`, `disagreement`
+
+- **Other triggers**:
+  - `question_repeated` → Frustrated
+  - `unfamiliar_person/place` → Anxious
+  - `confusion` → Confused
+
+More severe dementia stages react more strongly to triggers (higher response probability).
+
 Example usage:
 ```python
 from dementia_simulation.persona import DementiaPersona, DementiaStage, create_sample_personas
@@ -355,6 +399,57 @@ Comprehensive multi-dimensional assessment:
 - **Non-confrontational**: Avoiding arguments and corrections
 - **Conversation Flow**: Consistency, adaptability, and engagement metrics
 - **Use Case**: Post-conversation analysis and training assessment
+
+## 🛡️ Safety Guardrails
+
+The system includes comprehensive safety guardrails to filter harmful or inappropriate content in caregiver communications:
+
+### SafetyGuardrails Features
+
+- **Medical Advice Filtering**: Blocks medication dosages, diagnoses, and treatment recommendations
+- **Coercive Language Detection**: Identifies commanding, threatening, or forceful language
+- **Derogatory Language Detection**: Filters insulting, dismissive, or demeaning terms
+- **Harmful Content Detection**: Blocks threats, physical harm references, and manipulative language
+- **Inappropriate Content Detection**: Filters inappropriate or undignified language
+
+### Usage Example
+
+```python
+from dementia_simulation.safety import SafetyGuardrails
+
+# Initialize guardrails
+guardrails = SafetyGuardrails(strict_mode=True)
+
+# Check if text is safe
+caregiver_text = "How are you feeling today?"
+if guardrails.is_safe(caregiver_text):
+    print("Text is safe")
+
+# Get detailed violations
+unsafe_text = "You must take 50mg of aspirin daily."
+violations = guardrails.check_text(unsafe_text)
+for violation in violations:
+    print(f"Type: {violation.violation_type}")
+    print(f"Pattern: {violation.matched_pattern}")
+    print(f"Suggestion: {guardrails.get_suggestion(violation)}")
+
+# Filter response with replacement
+filtered_text, violations = guardrails.filter_response(unsafe_text)
+print(f"Filtered: {filtered_text}")
+```
+
+### Red-Team Testing
+
+Comprehensive safety tests are available in `tests/redteam/test_safety.py`:
+- Tests for all violation types
+- Edge cases and combined violations
+- Case-insensitive pattern matching
+- Context preservation in violations
+
+Run safety tests:
+```bash
+pytest tests/redteam/test_safety.py -v
+```
 
 ## 🧠 Using the RAG Pipeline
 
