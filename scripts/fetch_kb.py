@@ -45,16 +45,42 @@ def safe_slug(s: str) -> str:
 def fetch_url(url: str, ua: str, retry: dict) -> bytes:
     attempts = retry.get("attempts", 3)
     backoff = retry.get("backoff_sec", 2)
+    headers = {
+        "User-Agent": ua,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Accept-Encoding": "gzip, deflate, br",
+        "DNT": "1",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1"
+    }
     for i in range(attempts):
-        r = requests.get(url, headers={"User-Agent": ua}, timeout=30)
-        if r.status_code == 200:
-            return r.content
-        time.sleep(backoff * (i + 1))
-    raise RuntimeError(f"Failed to fetch: {url} (status={r.status_code})")
+        try:
+            r = requests.get(url, headers=headers, timeout=30)
+            if r.status_code == 200:
+                return r.content
+            print(f"  attempt {i+1}/{attempts}: status={r.status_code}")
+        except Exception as e:
+            print(f"  attempt {i+1}/{attempts}: error={e}")
+        if i < attempts - 1:
+            time.sleep(backoff * (i + 1))
+    raise RuntimeError(f"Failed to fetch: {url} after {attempts} attempts")
 
 
-def html_to_text(html_bytes: bytes) -> str:
-    soup = BeautifulSoup(html_bytes, "html.parser")
+def html_to_text(html_content) -> str:
+    # Accept either bytes or string
+    if isinstance(html_content, bytes):
+        try:
+            html_str = html_content.decode('utf-8')
+        except UnicodeDecodeError:
+            try:
+                html_str = html_content.decode('latin-1')
+            except Exception:
+                html_str = html_content.decode('utf-8', errors='ignore')
+    else:
+        html_str = html_content
+    
+    soup = BeautifulSoup(html_str, "html.parser")
     # Drop nav/footers if possible
     for s in soup(["script", "style", "nav", "footer", "header"]):
         s.decompose()
@@ -105,6 +131,8 @@ def summarize(text: str, max_words: int, min_words: int) -> str:
 
 
 def write_md(out_path: Path, meta: dict, body: str):
+    # Ensure path is absolute to avoid issues
+    out_path = out_path.resolve()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fm = "---\n" + yaml.safe_dump(meta, sort_keys=False) + "---\n\n"
     out_path.write_text(fm + body + "\n", encoding="utf-8")
@@ -156,8 +184,8 @@ def process_source(
     tags = src.get("tags", [])
     policy = src.get("policy", "summary")  # 'full' or 'summary'
 
-    raw_dir = out_raw / pub
-    kb_dir = out_kb / pub
+    raw_dir = (out_raw / pub).resolve()
+    kb_dir = (out_kb / pub).resolve()
     slug = safe_slug(title)
     raw_dir.mkdir(parents=True, exist_ok=True)
     kb_dir.mkdir(parents=True, exist_ok=True)
@@ -231,19 +259,29 @@ def main():
 
     today = str(date.today())
 
-    for src in manifest.get("sources", []):
-        process_source(
-            src,
-            ua=ua,
-            out_kb=out_kb,
-            out_raw=out_raw,
-            retry=retry,
-            max_words=max_words,
-            min_words=min_words,
-            quote_max_lines=quote_max_lines,
-            today=today,
-            checksums=checksums,
-        )
+    sources = manifest.get("sources", [])
+    for i, src in enumerate(sources):
+        print(f"\n[{i+1}/{len(sources)}]")
+        try:
+            process_source(
+                src,
+                ua=ua,
+                out_kb=out_kb,
+                out_raw=out_raw,
+                retry=retry,
+                max_words=max_words,
+                min_words=min_words,
+                quote_max_lines=quote_max_lines,
+                today=today,
+                checksums=checksums,
+            )
+        except Exception as e:
+            print(f"  ERROR: {e}")
+            print(f"  Skipping: {src.get('title', 'unknown')}")
+            continue
+        # Be respectful: add delay between requests
+        if i < len(sources) - 1:
+            time.sleep(2)
 
     checksum_path.write_text(json.dumps(checksums, indent=2), encoding="utf-8")
 

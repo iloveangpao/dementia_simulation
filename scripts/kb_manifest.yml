@@ -2,11 +2,11 @@
 defaults:
   out_kb_dir: data/knowledge_base
   out_raw_dir: data/raw
-  user_agent: "dementia-sim-bot/0.1 (edu; contact: maintainer@example.org)"
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
   max_md_words: 800
   min_md_words: 300
   quote_max_lines: 2
-  retry: { attempts: 3, backoff_sec: 2 }
+  retry: { attempts: 3, backoff_sec: 3 }
 
 sources:
   # -------------------------
