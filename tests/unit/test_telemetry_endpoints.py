@@ -110,7 +110,7 @@ def test_metrics_quick_endpoint(client):
     assert "total_errors" in counters
 
     # Verify all counter values are integers
-    for key, value in counters.items():
+    for _key, value in counters.items():
         assert isinstance(value, int)
 
 
