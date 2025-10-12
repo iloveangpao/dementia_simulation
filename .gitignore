@@ -206,6 +206,8 @@ data/uploads/*
 !data/uploads/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+data/raw/*
+!data/raw/.gitkeep
 .streamlit/
 reports/
 
