@@ -31,6 +31,21 @@ def mock_app_state():
     state.sessions = {}
     state.evaluator = Mock()
     state.rag_pipeline = Mock()
+    
+    # Mock session store
+    state.session_store = Mock()
+    state.turn_counters = {}
+    
+    # Mock telemetry logger
+    state.telemetry_logger = Mock()
+    state.telemetry_logger.log_turn = Mock()
+    state.telemetry_logger.log_event = Mock()
+    
+    # Mock metrics collector
+    state.metrics = Mock()
+    state.metrics.increment = Mock()
+    state.metrics.increment_flag = Mock()
+    state.metrics.set_counter = Mock()
 
     # Mock the get_or_create_session method
     def mock_get_or_create_session(session_id):
@@ -43,6 +58,9 @@ def mock_app_state():
         return state.sessions[session_id]
 
     state.get_or_create_session = mock_get_or_create_session
+    
+    # Mock session store set method
+    state.session_store.set = Mock()
 
     # Mock RAG pipeline response
     async def mock_generate_response(user_input, persona, conversation_history):
