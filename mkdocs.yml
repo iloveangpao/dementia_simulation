@@ -1,0 +1,137 @@
+site_name: Dementia Simulation Documentation
+site_description: Comprehensive documentation for the Dementia Simulation platform - helping caregivers practice empathetic communication
+site_author: Yan Rui
+site_url: https://iloveangpao.github.io/dementia_simulation/
+
+repo_name: iloveangpao/dementia_simulation
+repo_url: https://github.com/iloveangpao/dementia_simulation
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - toc.follow
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search:
+      lang: en
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_if_no_docstring: false
+            inherited_members: false
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+            merge_init_into_class: true
+            docstring_section_style: table
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - admonition
+  - pymdownx.details
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.keys
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+
+nav:
+  - Home: index.md
+  - Tutorials:
+      - tutorials/index.md
+      - Quickstart: tutorials/quickstart.md
+      - Run Locally: tutorials/run-local.md
+      - Build Index: tutorials/build-index.md
+  - How-to Guides:
+      - how-to/index.md
+      - Add Dataset: how-to/add-dataset.md
+      - Add Model: how-to/add-model.md
+      - Enable FAISS: how-to/enable-faiss.md
+      - Add Citations: how-to/add-citations.md
+  - Reference:
+      - reference/index.md
+      - API:
+          - reference/api/index.md
+          - Server: reference/api/server.md
+          - Runtime Endpoints: reference/api/runtime.md
+      - Modules:
+          - Persona: reference/modules/persona.md
+          - Retriever: reference/modules/retriever.md
+          - RAG: reference/modules/rag.md
+          - Evaluator: reference/modules/evaluator.md
+          - Utils: reference/modules/utils.md
+          - CLI: reference/modules/cli.md
+  - Explanation:
+      - explanation/index.md
+      - Architecture: explanation/architecture.md
+      - Data Pipeline: explanation/data-pipeline.md
+      - Evaluation & Iteration: explanation/evaluation-iteration.md
+      - Safety Guardrails: explanation/safety-guardrails.md
+      - Personas: explanation/personas.md
+  - Decisions:
+      - decisions/index.md
+      - ADR-0001 Docs Stack: decisions/ADR-0001-docs-stack.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/iloveangpao/dementia_simulation
+  generator: false
+
+extra_css:
+  - stylesheets/extra.css
