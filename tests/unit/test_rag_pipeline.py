@@ -3,11 +3,7 @@
 from unittest.mock import Mock
 
 import pytest
-
-from dementia_simulation.persona.models import (
-    MoodState,
-    create_sample_personas,
-)
+from dementia_simulation.persona.models import MoodState, create_sample_personas
 from dementia_simulation.rag.pipeline import (
     DementiaRAGPipeline,
     RAGResponse,
@@ -371,3 +367,164 @@ class TestRAGPipelineIntegration:
             assert len(response.response_text) > 0
             # Response should reflect the persona's stage
             assert response.persona_mood in [mood.value for mood in MoodState]
+
+
+class TestTokenizerSetup:
+    """Test tokenizer pad/EOS token handling."""
+
+    def test_tokenizer_pad_token_setup(self):
+        """Test that pad token is properly configured."""
+        from unittest.mock import MagicMock, patch
+
+        # Test case 1: Tokenizer with no pad token (common in GPT-2 style models)
+        with patch(
+            "dementia_simulation.rag.pipeline.AutoTokenizer.from_pretrained"
+        ) as mock_tokenizer_cls:
+            with patch(
+                "dementia_simulation.rag.pipeline.AutoModelForCausalLM.from_pretrained"
+            ) as mock_model_cls:
+                with patch("dementia_simulation.rag.pipeline.pipeline") as mock_pipe:
+                    # Setup mock tokenizer with no pad token
+                    mock_tokenizer = MagicMock()
+                    mock_tokenizer.pad_token = None
+                    mock_tokenizer.pad_token_id = None
+                    mock_tokenizer.eos_token = "<|endoftext|>"
+                    mock_tokenizer.eos_token_id = 50256
+                    mock_tokenizer_cls.return_value = mock_tokenizer
+
+                    # Setup mock model and pipeline
+                    mock_model = MagicMock()
+                    mock_model_cls.return_value = mock_model
+                    mock_pipe.return_value = MagicMock()
+
+                    # Create pipeline
+                    pipeline = DementiaRAGPipeline(model_name="test-model")
+
+                    # Verify pad token was set to eos token
+                    assert pipeline.tokenizer.pad_token == "<|endoftext|>"
+
+    def test_tokenizer_with_existing_pad_token_id(self):
+        """Test that existing pad_token_id is preserved."""
+        from unittest.mock import MagicMock, patch
+
+        with patch(
+            "dementia_simulation.rag.pipeline.AutoTokenizer.from_pretrained"
+        ) as mock_tokenizer_cls:
+            with patch(
+                "dementia_simulation.rag.pipeline.AutoModelForCausalLM.from_pretrained"
+            ) as mock_model_cls:
+                with patch("dementia_simulation.rag.pipeline.pipeline") as mock_pipe:
+                    # Setup mock tokenizer with pad_token_id but no pad_token
+                    mock_tokenizer = MagicMock()
+                    mock_tokenizer.pad_token = None
+                    mock_tokenizer.pad_token_id = 128001  # Explicit pad token ID
+                    mock_tokenizer.eos_token = "<|end|>"
+                    mock_tokenizer.eos_token_id = 128009
+                    mock_tokenizer_cls.return_value = mock_tokenizer
+
+                    # Setup mock model and pipeline
+                    mock_model = MagicMock()
+                    mock_model_cls.return_value = mock_model
+                    mock_pipe.return_value = MagicMock()
+
+                    # Create pipeline
+                    pipeline = DementiaRAGPipeline(model_name="test-model")
+
+                    # Verify pad_token_id was preserved (not changed to eos)
+                    assert pipeline.tokenizer.pad_token_id == 128001
+
+    def test_tokenizer_multiple_eos_token_ids(self):
+        """Test handling of multiple EOS token IDs (Llama 3.x style)."""
+        from unittest.mock import MagicMock, patch
+
+        with patch(
+            "dementia_simulation.rag.pipeline.AutoTokenizer.from_pretrained"
+        ) as mock_tokenizer_cls:
+            with patch(
+                "dementia_simulation.rag.pipeline.AutoModelForCausalLM.from_pretrained"
+            ) as mock_model_cls:
+                with patch("dementia_simulation.rag.pipeline.pipeline") as mock_pipe:
+                    # Setup mock tokenizer with multiple EOS token IDs
+                    mock_tokenizer = MagicMock()
+                    mock_tokenizer.pad_token = "<|pad|>"
+                    mock_tokenizer.pad_token_id = 128000
+                    mock_tokenizer.eos_token = "<|end|>"
+                    mock_tokenizer.eos_token_id = [
+                        128001,
+                        128009,
+                    ]  # Multiple EOS IDs
+                    mock_tokenizer_cls.return_value = mock_tokenizer
+
+                    # Setup mock model and pipeline
+                    mock_model = MagicMock()
+                    mock_model_cls.return_value = mock_model
+                    mock_generator = MagicMock()
+                    mock_pipe.return_value = mock_generator
+
+                    # Create pipeline
+                    pipeline = DementiaRAGPipeline(model_name="test-model")
+
+                    # Verify the pipeline was created
+                    assert pipeline.generator is not None
+
+                    # Verify that the pipeline was called with the full EOS list
+                    mock_pipe.assert_called_once()
+                    call_kwargs = mock_pipe.call_args[1]
+                    assert call_kwargs["eos_token_id"] == [128001, 128009]
+                    assert call_kwargs["pad_token_id"] == 128000
+
+    def test_device_selection(self):
+        """Test that device selection is correct."""
+        from unittest.mock import MagicMock, patch
+
+        with patch(
+            "dementia_simulation.rag.pipeline.AutoTokenizer.from_pretrained"
+        ) as mock_tokenizer_cls:
+            with patch(
+                "dementia_simulation.rag.pipeline.AutoModelForCausalLM.from_pretrained"
+            ) as mock_model_cls:
+                with patch("dementia_simulation.rag.pipeline.pipeline") as mock_pipe:
+                    with patch(
+                        "dementia_simulation.rag.pipeline.torch.cuda.is_available"
+                    ) as mock_cuda:
+                        # Test with CUDA available
+                        mock_cuda.return_value = True
+
+                        # Setup mocks
+                        mock_tokenizer = MagicMock()
+                        mock_tokenizer.pad_token = "<|pad|>"
+                        mock_tokenizer.pad_token_id = 0
+                        mock_tokenizer.eos_token_id = 1
+                        mock_tokenizer_cls.return_value = mock_tokenizer
+                        mock_model_cls.return_value = MagicMock()
+                        mock_pipe.return_value = MagicMock()
+
+                        # Create pipeline
+                        DementiaRAGPipeline(model_name="test-model")
+
+                        # Verify device=0 was passed for CUDA
+                        call_kwargs = mock_pipe.call_args[1]
+                        assert call_kwargs["device"] == 0
+
+                    with patch(
+                        "dementia_simulation.rag.pipeline.torch.cuda.is_available"
+                    ) as mock_cuda:
+                        # Test with CPU only
+                        mock_cuda.return_value = False
+
+                        # Reset mocks
+                        mock_pipe.reset_mock()
+                        mock_tokenizer_cls.reset_mock()
+                        mock_model_cls.reset_mock()
+
+                        # Setup mocks again
+                        mock_tokenizer_cls.return_value = mock_tokenizer
+                        mock_model_cls.return_value = MagicMock()
+                        mock_pipe.return_value = MagicMock()
+
+                        # Create pipeline
+                        DementiaRAGPipeline(model_name="test-model")
+
+                        # Verify device=-1 was passed for CPU
+                        call_kwargs = mock_pipe.call_args[1]
+                        assert call_kwargs["device"] == -1
