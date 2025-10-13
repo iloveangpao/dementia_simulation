@@ -48,13 +48,25 @@ class CLISession:
         # Initialize RAG pipeline
         click.echo("🤖 Setting up AI pipeline...")
         use_openai = os.getenv("OPENAI_API_KEY") is not None
+
+        # Determine model based on available credentials
+        model_name = "google/gemma-2b-it"  # default fallback
+        hf_token = os.getenv("HUGGING_FACE_HUB_TOKEN")
+        default_model = os.getenv("DEFAULT_MODEL")
+
         if use_openai:
             click.echo("   Using OpenAI API")
         else:
-            click.echo("   Using local models (or mock responses)")
+            if not hf_token and default_model:
+                model_name = default_model
+                click.echo(f"   Using DEFAULT_MODEL: {model_name}")
+            elif hf_token:
+                click.echo(f"   Using HuggingFace model: {model_name}")
+            else:
+                click.echo("   Using local models (or mock responses)")
 
         self.rag_pipeline = DementiaRAGPipeline(
-            retriever=retriever, use_openai=use_openai
+            retriever=retriever, model_name=model_name, use_openai=use_openai
         )
 
         # Load personas
@@ -86,6 +98,141 @@ def cli():
     pass
 
 
+def _select_persona(persona_id: Optional[str]) -> Optional[DementiaPersona]:
+    """Select a persona for the chat session."""
+    if persona_id is not None and persona_id in cli_session.personas:
+        return cli_session.personas[persona_id]
+
+    click.echo("Available personas:")
+    for pid, persona in cli_session.personas.items():
+        click.echo(
+            f"  {pid}: {persona.name} - {persona.age} years old, "
+            f"{persona.stage.value} dementia"
+        )
+
+    if not persona_id:
+        persona_id = click.prompt("\nSelect persona ID", default="persona_1")
+
+    if persona_id not in cli_session.personas:
+        click.echo(f"❌ Persona '{persona_id}' not found.")
+        return None
+
+    return cli_session.personas[persona_id]
+
+
+def _display_persona_info(persona: DementiaPersona):
+    """Display persona information and tips."""
+    click.echo(f"\n🎭 Starting conversation with {persona.name}")
+    click.echo(f"   Age: {persona.age}")
+    click.echo(f"   Dementia stage: {persona.stage.value}")
+    click.echo(f"   Current mood: {persona.current_mood.value}")
+
+    if persona.background:
+        click.echo("   Background:")
+        for key, value in persona.background.items():
+            click.echo(f"     {key}: {value}")
+
+    click.echo(f"\n💡 Tips for {persona.stage.value} dementia:")
+    if persona.stage == DementiaStage.MILD:
+        click.echo("   - Be patient with memory lapses")
+        click.echo("   - Validate their feelings")
+        click.echo("   - Offer gentle reminders")
+    elif persona.stage == DementiaStage.MODERATE:
+        click.echo("   - Speak slowly and clearly")
+        click.echo("   - Avoid arguments or corrections")
+        click.echo("   - Use validation therapy")
+        click.echo("   - Be prepared for repetition")
+    else:  # SEVERE
+        click.echo("   - Use simple, short sentences")
+        click.echo("   - Focus on emotions, not facts")
+        click.echo("   - Provide constant reassurance")
+        click.echo("   - Be very patient and gentle")
+
+
+async def _handle_special_commands(
+    user_input: str, persona: DementiaPersona, caregiver_responses: List[str]
+) -> Optional[str]:
+    """Handle special chat commands. Returns 'continue' or 'break' or None."""
+    if user_input.lower() in ["quit", "exit", "q"]:
+        return "break"
+    elif user_input.lower() == "help":
+        click.echo("\nCommands:")
+        click.echo("  quit/exit/q - End conversation")
+        click.echo("  help - Show this help")
+        click.echo("  mood - Check current persona mood")
+        click.echo("  evaluate - Get empathy evaluation")
+        return "continue"
+    elif user_input.lower() == "mood":
+        click.echo(f"Current mood: {persona.current_mood.value}")
+        return "continue"
+    elif user_input.lower() == "evaluate":
+        if caregiver_responses:
+            await show_evaluation(caregiver_responses)
+        else:
+            click.echo("No responses to evaluate yet.")
+        return "continue"
+    return None
+
+
+async def _run_conversation_loop(persona: DementiaPersona) -> List[str]:
+    """Run the main conversation loop."""
+    caregiver_responses = []
+
+    while True:
+        try:
+            user_input = click.prompt("\n[You]", type=str)
+
+            command_result = await _handle_special_commands(
+                user_input, persona, caregiver_responses
+            )
+            if command_result == "break":
+                break
+            elif command_result == "continue":
+                continue
+
+            # Generate response
+            click.echo("   🤔 Thinking...", nl=False)
+
+            response = await cli_session.rag_pipeline.generate_response(
+                user_input=user_input,
+                persona=persona,
+                conversation_history=cli_session.conversation_history,
+            )
+
+            click.echo(f"\r[{persona.name}] {response.response_text}")
+            click.echo(
+                f"   💭 Mood: {response.persona_mood} | "
+                f"Confidence: {response.confidence_score:.2f}"
+            )
+
+            # Store conversation
+            cli_session.conversation_history.extend(
+                [
+                    {
+                        "speaker": "caregiver",
+                        "message": user_input,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                    {
+                        "speaker": "patient",
+                        "message": response.response_text,
+                        "timestamp": datetime.now().isoformat(),
+                        "mood": response.persona_mood,
+                    },
+                ]
+            )
+
+            caregiver_responses.append(user_input)
+
+        except KeyboardInterrupt:
+            click.echo("\n\n👋 Conversation ended by user.")
+            break
+        except Exception as e:
+            click.echo(f"\n❌ Error: {e}")
+
+    return caregiver_responses
+
+
 @cli.command()
 @click.option(
     "--persona-id", help="Persona ID to use (persona_1, persona_2, persona_3)"
@@ -97,125 +244,22 @@ def chat(persona_id: Optional[str], save_session: bool):
     """
 
     async def run_chat():
-        nonlocal persona_id
         await cli_session.initialize()
 
-        # Select persona
-        if persona_id is not None and persona_id in cli_session.personas:
-            persona = cli_session.personas[persona_id]
-        else:
-            click.echo("Available personas:")
-            for pid, persona in cli_session.personas.items():
-                click.echo(
-                    f"  {pid}: {persona.name} - {persona.age} years old, {persona.stage.value} dementia"
-                )
-
-            if not persona_id:
-                persona_id = click.prompt("\nSelect persona ID", default="persona_1")
-
-            if persona_id not in cli_session.personas:
-                click.echo(f"❌ Persona '{persona_id}' not found.")
-                return
-
-            persona = cli_session.personas[persona_id]
+        persona = _select_persona(persona_id)
+        if not persona:
+            return
 
         cli_session.current_persona = persona
 
-        # Display persona information
-        click.echo(f"\n🎭 Starting conversation with {persona.name}")
-        click.echo(f"   Age: {persona.age}")
-        click.echo(f"   Dementia stage: {persona.stage.value}")
-        click.echo(f"   Current mood: {persona.current_mood.value}")
-
-        if persona.background:
-            click.echo("   Background:")
-            for key, value in persona.background.items():
-                click.echo(f"     {key}: {value}")
-
-        click.echo(f"\n💡 Tips for {persona.stage.value} dementia:")
-        if persona.stage == DementiaStage.MILD:
-            click.echo("   - Be patient with memory lapses")
-            click.echo("   - Validate their feelings")
-            click.echo("   - Offer gentle reminders")
-        elif persona.stage == DementiaStage.MODERATE:
-            click.echo("   - Speak slowly and clearly")
-            click.echo("   - Avoid arguments or corrections")
-            click.echo("   - Use validation therapy")
-            click.echo("   - Be prepared for repetition")
-        else:  # SEVERE
-            click.echo("   - Use simple, short sentences")
-            click.echo("   - Focus on emotions, not facts")
-            click.echo("   - Provide constant reassurance")
-            click.echo("   - Be very patient and gentle")
+        _display_persona_info(persona)
 
         click.echo(
             "\n💬 Start your conversation (type 'quit' to end, 'help' for commands):"
         )
         click.echo("-" * 60)
 
-        caregiver_responses = []
-
-        while True:
-            try:
-                user_input = click.prompt("\n[You]", type=str)
-
-                if user_input.lower() in ["quit", "exit", "q"]:
-                    break
-                elif user_input.lower() == "help":
-                    click.echo("\nCommands:")
-                    click.echo("  quit/exit/q - End conversation")
-                    click.echo("  help - Show this help")
-                    click.echo("  mood - Check current persona mood")
-                    click.echo("  evaluate - Get empathy evaluation")
-                    continue
-                elif user_input.lower() == "mood":
-                    click.echo(f"Current mood: {persona.current_mood.value}")
-                    continue
-                elif user_input.lower() == "evaluate":
-                    if caregiver_responses:
-                        await show_evaluation(caregiver_responses)
-                    else:
-                        click.echo("No responses to evaluate yet.")
-                    continue
-
-                # Generate response
-                click.echo("   🤔 Thinking...", nl=False)
-
-                response = await cli_session.rag_pipeline.generate_response(
-                    user_input=user_input,
-                    persona=persona,
-                    conversation_history=cli_session.conversation_history,
-                )
-
-                click.echo(f"\r[{persona.name}] {response.response_text}")
-                click.echo(
-                    f"   💭 Mood: {response.persona_mood} | Confidence: {response.confidence_score:.2f}"
-                )
-
-                # Store conversation
-                cli_session.conversation_history.append(
-                    {
-                        "speaker": "caregiver",
-                        "message": user_input,
-                        "timestamp": datetime.now().isoformat(),
-                    }
-                )
-                cli_session.conversation_history.append(
-                    {
-                        "speaker": "patient",
-                        "message": response.response_text,
-                        "timestamp": datetime.now().isoformat(),
-                        "mood": response.persona_mood,
-                    }
-                )
-
-                caregiver_responses.append(user_input)
-
-            except KeyboardInterrupt:
-                click.echo("\n\n👋 Conversation ended by user.")
-                break
-            except Exception as e:
-                click.echo(f"\n❌ Error: {e}")
+        caregiver_responses = await _run_conversation_loop(persona)
 
         # End of conversation
         click.echo("\n" + "=" * 60)
@@ -393,7 +437,8 @@ def server(port: int, host: str):
         )
     except ImportError:
         click.echo(
-            "❌ FastAPI/Uvicorn not available. Install with: pip install fastapi uvicorn"
+            "❌ FastAPI/Uvicorn not available. "
+            "Install with: pip install fastapi uvicorn"
         )
     except Exception as e:
         click.echo(f"❌ Error starting server: {e}")

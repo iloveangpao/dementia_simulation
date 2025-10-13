@@ -20,6 +20,8 @@ from ..retriever.faiss_retriever import FAISSRetriever
 
 try:
     import torch
+    from huggingface_hub import model_info
+    from huggingface_hub.utils import GatedRepoError, RepositoryNotFoundError
     from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
     HF_AVAILABLE = True
@@ -100,6 +102,24 @@ class DementiaRAGPipeline:
         if self.use_openai and OPENAI_AVAILABLE:
             self._setup_openai()
         elif HF_AVAILABLE:
+            # Check if we need a HuggingFace token for the selected model
+            hf_token = os.getenv("HUGGING_FACE_HUB_TOKEN")
+            default_model = os.getenv("DEFAULT_MODEL")
+
+            # If no token provided, try to use DEFAULT_MODEL if available
+            if not hf_token and default_model:
+                logger.info(
+                    f"No HuggingFace token found, using DEFAULT_MODEL: {default_model}"
+                )
+                self.model_name = default_model
+            elif not hf_token:
+                # Check if current model is accessible without token
+                if not self._is_model_accessible(self.model_name):
+                    logger.warning(
+                        f"Model {self.model_name} may require authentication "
+                        f"but no token provided"
+                    )
+
             self._setup_huggingface()
         else:
             logger.warning("No language models available. Using mock responses.")
@@ -122,8 +142,14 @@ class DementiaRAGPipeline:
             device = "cuda" if torch.cuda.is_available() else "cpu"
             logger.info(f"Using device: {device}")
 
+            # Check for HuggingFace token
+            hf_token = os.getenv("HUGGING_FACE_HUB_TOKEN")
+            auth_kwargs = {"token": hf_token} if hf_token else {}
+
             # Load tokenizer and model
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.model_name, **auth_kwargs
+            )
 
             # Add pad token if not present
             if self.tokenizer.pad_token is None:
@@ -141,6 +167,10 @@ class DementiaRAGPipeline:
                 model_kwargs.update(
                     {"torch_dtype": torch.float16, "revision": "float16"}
                 )
+
+            # Add authentication token if available
+            if hf_token:
+                model_kwargs["token"] = hf_token
 
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name, **model_kwargs
@@ -162,6 +192,58 @@ class DementiaRAGPipeline:
 
         except Exception as e:
             logger.error(f"Error setting up HuggingFace model: {e}")
+
+            # If model requires authentication and we don't have a token,
+            # try DEFAULT_MODEL
+            hf_token = os.getenv("HUGGING_FACE_HUB_TOKEN")
+            default_model = os.getenv("DEFAULT_MODEL")
+
+            if not hf_token and default_model and self.model_name != default_model:
+                logger.info(f"Retrying with DEFAULT_MODEL: {default_model}")
+                self.model_name = default_model
+                try:
+                    # Retry with default model
+                    self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+                    if self.tokenizer.pad_token is None:
+                        self.tokenizer.pad_token = self.tokenizer.eos_token
+
+                    dtype = (
+                        torch.bfloat16 if torch.cuda.is_available() else torch.float32
+                    )
+                    model_kwargs = {
+                        "torch_dtype": dtype,
+                        "low_cpu_mem_usage": True,
+                    }
+
+                    if torch.cuda.is_available() and not torch.cuda.is_bf16_supported():
+                        model_kwargs.update(
+                            {"torch_dtype": torch.float16, "revision": "float16"}
+                        )
+
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        self.model_name, **model_kwargs
+                    )
+
+                    device = "cuda" if torch.cuda.is_available() else "cpu"
+                    self.generator = pipeline(
+                        "text-generation",
+                        model=self.model,
+                        tokenizer=self.tokenizer,
+                        device=0 if device == "cuda" else -1,
+                        do_sample=True,
+                        temperature=self.temperature,
+                        max_new_tokens=150,
+                        pad_token_id=self.tokenizer.eos_token_id,
+                    )
+
+                    logger.info(
+                        f"Successfully initialized DEFAULT_MODEL: {self.model_name}"
+                    )
+                    return
+
+                except Exception as fallback_error:
+                    logger.error(f"Error with DEFAULT_MODEL fallback: {fallback_error}")
+
             self.model = None
             self.tokenizer = None
             self.generator = None
@@ -200,6 +282,28 @@ class DementiaRAGPipeline:
 
         logger.debug(f"Retrieved {len(filtered_results)} relevant documents")
         return filtered_results[:k]
+
+    def _is_model_accessible(
+        self, model_name: str, token: Optional[str] = None
+    ) -> bool:
+        """
+        Check if a model is accessible without authentication errors.
+
+        Args:
+            model_name: Name of the HuggingFace model
+            token: Optional HuggingFace token
+
+        Returns:
+            True if model is accessible, False otherwise
+        """
+        try:
+            if HF_AVAILABLE:
+                # Try to get model info to check accessibility
+                model_info(model_name, token=token)
+                return True
+        except (RepositoryNotFoundError, GatedRepoError, Exception):
+            pass
+        return False
 
     def _truncate_messages_by_tokens(
         self, messages: List[Dict[str, str]]
