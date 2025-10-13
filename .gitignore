@@ -199,17 +199,36 @@ __marimo__/
 # Application-specific
 logs/
 *.log
+
+# Generated data
+embeddings/
 embeddings/*.index
 embeddings/*.json
+frontend/embeddings/
+**/faiss_index.*
+*.index
+scripts/checksums.json
+
+# Knowledge base and raw data
+data/knowledge_base/*/**
+!data/knowledge_base/.gitkeep
+!data/knowledge_base/*/.gitkeep
+data/raw/*/**
+!data/raw/.gitkeep
+!data/raw/*/.gitkeep
+
+# Other data directories
+data/sessions/
 data/sessions/*.json
 data/uploads/*
 !data/uploads/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
-data/raw/*
-!data/raw/.gitkeep
+
+# Runtime configuration
 .streamlit/
 reports/
+!.env.example
 
 # Model caches
 .cache/
