@@ -6,9 +6,6 @@ to create contextually informed responses for dementia patient simulation.
 """
 
 import asyncio
-from typing import List, Dict, Optional
-from dataclasses import dataclass
-from loguru import logger
 import os
 from dataclasses import dataclass
 from datetime import datetime
@@ -63,6 +60,9 @@ class DementiaRAGPipeline:
         openai_model: str = "gpt-3.5-turbo",
         max_context_length: int = 2048,
         temperature: float = 0.7,
+        top_p: float = 0.9,
+        repetition_penalty: float = 1.1,
+        max_context_tokens: int = 1024,
     ):
         """
         Initialize the RAG pipeline.
@@ -73,7 +73,11 @@ class DementiaRAGPipeline:
             use_openai: Whether to use OpenAI API instead of local models
             openai_model: OpenAI model to use
             max_context_length: Maximum context length for generation
+                (deprecated, use max_context_tokens)
             temperature: Generation temperature (0.0 to 1.0)
+            top_p: Nucleus sampling parameter
+            repetition_penalty: Penalty for repeated tokens
+            max_context_tokens: Maximum number of tokens for context
         """
         self.retriever = retriever or FAISSRetriever()
         self.model_name = model_name
@@ -81,6 +85,9 @@ class DementiaRAGPipeline:
         self.openai_model = openai_model
         self.max_context_length = max_context_length
         self.temperature = temperature
+        self.top_p = top_p
+        self.repetition_penalty = repetition_penalty
+        self.max_context_tokens = max_context_tokens
 
         # Initialize language model
         self.tokenizer = None
@@ -184,15 +191,74 @@ class DementiaRAGPipeline:
         logger.debug(f"Retrieved {len(filtered_results)} relevant documents")
         return filtered_results[:k]
 
+    def _truncate_messages_by_tokens(
+        self, messages: List[Dict[str, str]]
+    ) -> List[Dict[str, str]]:
+        """
+        Truncate messages to fit within max_context_tokens by keeping the last tokens.
+
+        Args:
+            messages: List of chat messages
+
+        Returns:
+            Truncated list of messages
+        """
+        if self.tokenizer is None:
+            return messages
+
+        # Encode all messages to get total token count
+        full_text = ""
+        for msg in messages:
+            full_text += f"{msg['role']}: {msg['content']}\n"
+
+        tokens = self.tokenizer.encode(full_text, add_special_tokens=True)
+
+        # If within limit, return as is
+        if len(tokens) <= self.max_context_tokens:
+            return messages
+
+        # Keep system message and truncate conversation history
+        system_msgs = [msg for msg in messages if msg["role"] == "system"]
+        other_msgs = [msg for msg in messages if msg["role"] != "system"]
+
+        # Try to keep at least the last user message
+        if not other_msgs:
+            return system_msgs
+
+        # Encode system message
+        system_text = ""
+        for msg in system_msgs:
+            system_text += f"{msg['role']}: {msg['content']}\n"
+        system_tokens = self.tokenizer.encode(system_text, add_special_tokens=False)
+
+        # Calculate available tokens for other messages
+        available_tokens = self.max_context_tokens - len(system_tokens) - 50  # buffer
+
+        # Start from the end and add messages until we hit the limit
+        truncated_other = []
+        current_tokens = 0
+
+        for msg in reversed(other_msgs):
+            msg_text = f"{msg['role']}: {msg['content']}\n"
+            msg_tokens = self.tokenizer.encode(msg_text, add_special_tokens=False)
+
+            if current_tokens + len(msg_tokens) <= available_tokens:
+                truncated_other.insert(0, msg)
+                current_tokens += len(msg_tokens)
+            else:
+                break
+
+        return system_msgs + truncated_other
+
     def build_prompt(
         self,
         user_input: str,
         persona: DementiaPersona,
         context_documents: List[Dict],
         conversation_history: List[Dict] = None,
-    ) -> str:
+    ) -> List[Dict[str, str]]:
         """
-        Build the complete prompt for generation.
+        Build the complete prompt for generation using chat format.
 
         Args:
             user_input: User's current input
@@ -201,37 +267,46 @@ class DementiaRAGPipeline:
             conversation_history: Recent conversation history
 
         Returns:
-            Complete prompt string
+            List of chat messages in format
+            [{"role": "system"|"user"|"assistant", "content": str}]
         """
-        # Start with persona context
-        prompt = persona.get_context_prompt()
+        messages = []
+
+        # System message with persona context and guidance
+        system_content = persona.get_context_prompt()
+        system_content += (
+            "\n\nGuidance: Validate feelings and emotions. "
+            "Avoid arguing or correcting. Speak simply and clearly. "
+            "Redirect gently when confused."
+        )
 
         # Add relevant knowledge if available
         if context_documents:
-            prompt += "\n\nRelevant care information:\n"
+            system_content += "\n\nRelevant care information:\n"
             for i, doc in enumerate(
                 context_documents[:2], 1
             ):  # Limit to 2 docs to save space
-                prompt += f"{i}. {doc['text']}\n"
+                system_content += f"{i}. {doc['text']}\n"
 
-        # Add conversation history
+        messages.append({"role": "system", "content": system_content})
+
+        # Add conversation history (last 3 exchanges)
         if conversation_history and len(conversation_history) > 0:
-            prompt += "\n\nRecent conversation:\n"
-            for entry in conversation_history[-3:]:  # Last 3 exchanges
-                speaker = "Caregiver" if entry["speaker"] == "caregiver" else "You"
-                prompt += f"{speaker}: {entry['message']}\n"
+            for entry in conversation_history[-3:]:
+                role = "user" if entry["speaker"] == "caregiver" else "assistant"
+                messages.append({"role": role, "content": entry["message"]})
 
-        # Add current interaction
-        prompt += f"\n\nCaregiver: {user_input}\nYou: "
+        # Add current user input
+        messages.append({"role": "user", "content": user_input})
 
-        return prompt
+        return messages
 
-    async def generate_response_openai(self, prompt: str) -> str:
+    async def generate_response_openai(self, messages: List[Dict[str, str]]) -> str:
         """
         Generate response using OpenAI API.
 
         Args:
-            prompt: Complete prompt for generation
+            messages: List of chat messages in format [{"role": str, "content": str}]
 
         Returns:
             Generated response text
@@ -239,16 +314,10 @@ class DementiaRAGPipeline:
         try:
             response = await openai.ChatCompletion.acreate(
                 model=self.openai_model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are roleplaying as a person with dementia. Follow the persona description carefully.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
+                messages=messages,
                 max_tokens=150,
                 temperature=self.temperature,
-                top_p=0.9,
+                top_p=self.top_p,
             )
 
             return response.choices[0].message.content.strip()
@@ -257,40 +326,94 @@ class DementiaRAGPipeline:
             logger.error(f"OpenAI generation error: {e}")
             return "I'm sorry, I'm feeling a bit confused right now."
 
-    def generate_response_huggingface(self, prompt: str) -> str:
+    def generate_response_huggingface(
+        self, messages: List[Dict[str, str]], retry_count: int = 0
+    ) -> str:
         """
-        Generate response using HuggingFace model.
+        Generate response using HuggingFace model with chat template.
 
         Args:
-            prompt: Complete prompt for generation
+            messages: List of chat messages in format [{"role": str, "content": str}]
+            retry_count: Current retry attempt (for internal use)
 
         Returns:
             Generated response text
         """
         try:
-            if self.generator is None:
+            if self.generator is None or self.tokenizer is None:
                 return "I'm having trouble thinking right now."
 
-            # Truncate prompt if too long
-            if len(prompt) > self.max_context_length:
-                prompt = prompt[-self.max_context_length :]
+            # Truncate messages by tokens
+            truncated_messages = self._truncate_messages_by_tokens(messages)
 
-            # Generate response
+            # Try to use chat template if available
+            try:
+                prompt = self.tokenizer.apply_chat_template(
+                    truncated_messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+            except Exception as template_error:
+                logger.warning(
+                    f"Chat template not available, using fallback: {template_error}"
+                )
+                # Fallback: concatenate messages manually
+                prompt = ""
+                for msg in truncated_messages:
+                    role_label = {
+                        "system": "System",
+                        "user": "Caregiver",
+                        "assistant": "You",
+                    }.get(msg["role"], msg["role"].capitalize())
+                    prompt += f"{role_label}: {msg['content']}\n"
+                prompt += "You: "
+
+            # Generate response with decoding parameters
             outputs = self.generator(
                 prompt,
                 max_new_tokens=100,
                 num_return_sequences=1,
+                temperature=self.temperature,
+                top_p=self.top_p,
+                repetition_penalty=self.repetition_penalty,
                 pad_token_id=self.tokenizer.eos_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
+                return_full_text=False,
             )
 
-            # Extract generated text (remove prompt)
-            generated_text = outputs[0]["generated_text"]
-            response = generated_text[len(prompt) :].strip()
+            # Extract generated text
+            response = outputs[0]["generated_text"].strip()
 
             # Clean up response
             if "\n" in response:
                 response = response.split("\n")[0]  # Take first line only
+
+            # Min-length guard and retry logic
+            is_too_short = len(response) < 40
+            is_non_wordy = response.lower() in ["pl", "ok", "yes", "no", "hmm"]
+
+            if (is_too_short or is_non_wordy) and retry_count == 0:
+                logger.info(
+                    f"Response too short or non-wordy (len={len(response)}), "
+                    "retrying with coach tail"
+                )
+                # Add a coach tail to encourage better response
+                coach_message = {
+                    "role": "system",
+                    "content": (
+                        "Remember: Validate feelings and gently redirect. "
+                        "Respond with more detail and empathy. "
+                        "Speak as the person with dementia would naturally respond."
+                    ),
+                }
+                # Insert coach message before the last user message
+                enhanced_messages = truncated_messages[:-1] + [
+                    coach_message,
+                    truncated_messages[-1],
+                ]
+                return self.generate_response_huggingface(
+                    enhanced_messages, retry_count=1
+                )
 
             return response if response else "I'm not sure what to say."
 
@@ -375,17 +498,17 @@ class DementiaRAGPipeline:
         # Retrieve relevant context
         context_docs = self.retrieve_context(user_input, persona)
 
-        # Build prompt
-        prompt = self.build_prompt(
+        # Build prompt messages
+        messages = self.build_prompt(
             user_input, persona, context_docs, conversation_history
         )
 
         # Generate response
         if self.use_openai and OPENAI_AVAILABLE:
-            response_text = await self.generate_response_openai(prompt)
+            response_text = await self.generate_response_openai(messages)
             model_used = f"openai-{self.openai_model}"
         elif self.generator is not None:
-            response_text = self.generate_response_huggingface(prompt)
+            response_text = self.generate_response_huggingface(messages)
             model_used = self.model_name
         else:
             response_text = self.generate_mock_response(persona, user_input)
