@@ -486,13 +486,16 @@ asyncio.run(main())
 from dementia_simulation.rag import DementiaRAGPipeline
 from dementia_simulation.retriever.faiss_retriever import FAISSRetriever
 
-# Initialize with custom settings
+# Initialize with custom settings and generation guardrails
 retriever = FAISSRetriever()
 pipeline = DementiaRAGPipeline(
     retriever=retriever,
     model_name="microsoft/DialoGPT-medium",
     use_openai=False,
-    temperature=0.7
+    temperature=0.7,
+    top_p=0.9,                    # Nucleus sampling
+    repetition_penalty=1.1,       # Reduce repetitive responses
+    max_context_tokens=1024       # Token-based context limit
 )
 
 # Generate response with conversation history
@@ -507,6 +510,17 @@ response = await pipeline.generate_response(
     conversation_history=conversation_history
 )
 ```
+
+### Generation Guardrails
+
+The RAG pipeline includes several guardrails for improved response quality:
+
+- **Chat Templates**: Uses HuggingFace chat templates for proper prompt formatting
+- **Token-Based Truncation**: Automatically truncates conversation history to fit within token limits
+- **Min-Length Guard**: Responses shorter than 40 characters trigger a retry with additional coaching
+- **Non-Wordy Detection**: Single-word responses like "ok" or "pl" trigger retry mechanism
+- **Care Guidance**: System prompts include "validate feelings, avoid arguing, speak simply"
+- **Decoding Parameters**: Temperature, top-p, and repetition penalty for controlled generation
 
 ### Response Object
 
