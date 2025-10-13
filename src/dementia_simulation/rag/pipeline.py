@@ -33,6 +33,9 @@ try:
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 @dataclass
@@ -55,7 +58,7 @@ class DementiaRAGPipeline:
     def __init__(
         self,
         retriever: Optional[FAISSRetriever] = None,
-        model_name: str = "microsoft/DialoGPT-medium",
+        model_name: str = "google/gemma-2b-it",
         use_openai: bool = False,
         openai_model: str = "gpt-3.5-turbo",
         max_context_length: int = 2048,
@@ -126,11 +129,18 @@ class DementiaRAGPipeline:
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
 
-            # Load model with appropriate settings
+            dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+
             model_kwargs = {
-                "torch_dtype": torch.float16 if device == "cuda" else torch.float32,
+                "torch_dtype": dtype,
                 "low_cpu_mem_usage": True,
             }
+
+            # If CUDA but bf16 not supported, fall back to fp16 revision
+            if torch.cuda.is_available() and not torch.cuda.is_bf16_supported():
+                model_kwargs.update(
+                    {"torch_dtype": torch.float16, "revision": "float16"}
+                )
 
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name, **model_kwargs
@@ -344,12 +354,15 @@ class DementiaRAGPipeline:
                 return "I'm having trouble thinking right now."
 
             # Truncate messages by tokens
-            truncated_messages = self._truncate_messages_by_tokens(messages)
+            msgs = self._truncate_messages_by_tokens(
+                messages
+            )  # your existing truncation
+            msgs = self._normalize_for_gemma(msgs, self.tokenizer)
 
             # Try to use chat template if available
             try:
                 prompt = self.tokenizer.apply_chat_template(
-                    truncated_messages,
+                    msgs,
                     tokenize=False,
                     add_generation_prompt=True,
                 )
@@ -359,7 +372,7 @@ class DementiaRAGPipeline:
                 )
                 # Fallback: concatenate messages manually
                 prompt = ""
-                for msg in truncated_messages:
+                for msg in msgs:
                     role_label = {
                         "system": "System",
                         "user": "Caregiver",
@@ -407,14 +420,14 @@ class DementiaRAGPipeline:
                     ),
                 }
                 # Insert coach message before the last user message
-                enhanced_messages = truncated_messages[:-1] + [
+                enhanced_messages = msgs[:-1] + [
                     coach_message,
-                    truncated_messages[-1],
+                    msgs[-1],
                 ]
                 return self.generate_response_huggingface(
                     enhanced_messages, retry_count=1
                 )
-
+            logger.info(response)
             return response if response else "I'm not sure what to say."
 
         except Exception as e:
@@ -547,6 +560,43 @@ class DementiaRAGPipeline:
             "model_loaded": self.generator is not None or self.use_openai,
         }
         return stats
+
+    def _normalize_for_gemma(self, messages, tokenizer):
+        # If the tokenizer doesn't know a system role, fold it into the first user turn
+        tpl = getattr(tokenizer, "chat_template", "") or ""
+        system_supported = "system" in tpl  # crude but works for Gemma 2.x
+
+        if system_supported:
+            # For other models, nothing to do
+            return messages
+
+        # 1) extract and remove system content
+        sys = None
+        keep = []
+        for m in messages:
+            if m.get("role") == "system" and sys is None:
+                sys = m["content"]
+            else:
+                keep.append(m)
+        messages = keep
+
+        # 2) merge system guidance into the first user message
+        for _i, m in enumerate(messages):
+            if m["role"] == "user":
+                if sys:
+                    m["content"] = (
+                        "### Instructions for the model\n"
+                        + sys.strip()
+                        + "\n\n---\n\n"
+                        + m["content"]
+                    )
+                break  # only the first user turn
+
+        # 3) rename assistant -> model (Gemma expects 'model')
+        for m in messages:
+            if m["role"] == "assistant":
+                m["role"] = "model"
+        return messages
 
 
 # Convenience function for backward compatibility and easier access
