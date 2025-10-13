@@ -52,7 +52,7 @@ def fetch_url(url: str, ua: str, retry: dict) -> bytes:
         "Accept-Encoding": "gzip, deflate, br",
         "DNT": "1",
         "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1"
+        "Upgrade-Insecure-Requests": "1",
     }
     for i in range(attempts):
         try:
@@ -71,15 +71,15 @@ def html_to_text(html_content) -> str:
     # Accept either bytes or string
     if isinstance(html_content, bytes):
         try:
-            html_str = html_content.decode('utf-8')
+            html_str = html_content.decode("utf-8")
         except UnicodeDecodeError:
             try:
-                html_str = html_content.decode('latin-1')
+                html_str = html_content.decode("latin-1")
             except Exception:
-                html_str = html_content.decode('utf-8', errors='ignore')
+                html_str = html_content.decode("utf-8", errors="ignore")
     else:
         html_str = html_content
-    
+
     soup = BeautifulSoup(html_str, "html.parser")
     # Drop nav/footers if possible
     for s in soup(["script", "style", "nav", "footer", "header"]):

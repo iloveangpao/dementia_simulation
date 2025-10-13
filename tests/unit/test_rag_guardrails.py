@@ -147,9 +147,7 @@ class TestTokenBasedTruncation:
         self, mock_retriever, sample_persona
     ):
         """Test that messages are truncated when exceeding token limit."""
-        pipeline = DementiaRAGPipeline(
-            retriever=mock_retriever, max_context_tokens=50
-        )
+        pipeline = DementiaRAGPipeline(retriever=mock_retriever, max_context_tokens=50)
 
         # Only test if tokenizer is available
         if pipeline.tokenizer is None:
@@ -185,9 +183,7 @@ class TestTokenBasedTruncation:
 
     def test_truncate_keeps_system_message(self, mock_retriever, sample_persona):
         """Test that system message is always kept during truncation."""
-        pipeline = DementiaRAGPipeline(
-            retriever=mock_retriever, max_context_tokens=50
-        )
+        pipeline = DementiaRAGPipeline(retriever=mock_retriever, max_context_tokens=50)
 
         # Only test if tokenizer is available
         if pipeline.tokenizer is None:
@@ -245,8 +241,7 @@ class TestRetryLogic:
                 [
                     {
                         "generated_text": (
-                            "I understand how you feel. "
-                            "Let me help you with that."
+                            "I understand how you feel. " "Let me help you with that."
                         )
                     }
                 ],
