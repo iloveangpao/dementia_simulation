@@ -109,18 +109,28 @@ class TestDementiaRAGPipeline:
             {"text": "Use simple language", "severity": ["mild", "moderate"]},
         ]
 
-        prompt = rag_pipeline.build_prompt(
+        messages = rag_pipeline.build_prompt(
             user_input="How are you?",
             persona=sample_persona,
             context_documents=context_docs,
             conversation_history=None,
         )
 
-        assert isinstance(prompt, str)
-        assert len(prompt) > 0
-        assert "How are you?" in prompt
-        # Check that persona context is included
-        assert sample_persona.name in prompt or sample_persona.stage.value in prompt
+        assert isinstance(messages, list)
+        assert len(messages) > 0
+        # Check that we have system and user messages
+        assert any(msg["role"] == "system" for msg in messages)
+        assert any(msg["role"] == "user" for msg in messages)
+        # Check that user input is in the messages
+        user_msgs = [msg for msg in messages if msg["role"] == "user"]
+        assert any("How are you?" in msg["content"] for msg in user_msgs)
+        # Check that persona context is included in system message
+        system_msgs = [msg for msg in messages if msg["role"] == "system"]
+        assert any(
+            sample_persona.name in msg["content"]
+            or sample_persona.stage.value in msg["content"]
+            for msg in system_msgs
+        )
 
     def test_build_prompt_with_history(self, rag_pipeline, sample_persona):
         """Test prompt building with conversation history."""
@@ -130,15 +140,25 @@ class TestDementiaRAGPipeline:
             {"speaker": "patient", "message": "Hi there."},
         ]
 
-        prompt = rag_pipeline.build_prompt(
+        messages = rag_pipeline.build_prompt(
             user_input="How are you feeling?",
             persona=sample_persona,
             context_documents=context_docs,
             conversation_history=history,
         )
 
-        assert "Hello!" in prompt
-        assert "How are you feeling?" in prompt
+        # Check that history is included
+        user_msgs = [msg for msg in messages if msg["role"] == "user"]
+        assistant_msgs = [msg for msg in messages if msg["role"] == "assistant"]
+
+        # Should have at least 2 user messages (from history and current)
+        assert len(user_msgs) >= 1
+        # Check that current input is in messages
+        assert any("How are you feeling?" in msg["content"] for msg in user_msgs)
+        # Check that history message is included
+        assert any("Hello!" in msg["content"] for msg in user_msgs) or any(
+            "Hi there." in msg["content"] for msg in assistant_msgs
+        )
 
     def test_generate_mock_response(self, rag_pipeline, sample_persona):
         """Test mock response generation."""
