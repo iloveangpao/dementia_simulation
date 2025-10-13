@@ -122,9 +122,22 @@ class DementiaRAGPipeline:
             # Load tokenizer and model
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
 
-            # Add pad token if not present
+            # Set pad token if not present (prefer explicit pad, fall back to eos)
             if self.tokenizer.pad_token is None:
-                self.tokenizer.pad_token = self.tokenizer.eos_token
+                # Some models define pad_token_id but not pad_token string
+                if self.tokenizer.pad_token_id is not None:
+                    logger.info("Using existing pad_token_id from tokenizer config")
+                else:
+                    # Fall back to EOS token for padding
+                    self.tokenizer.pad_token = self.tokenizer.eos_token
+                    logger.info("Set pad_token to eos_token (no explicit pad token)")
+
+            # Handle multiple EOS token IDs (e.g., Llama 3.x)
+            # Some models have eos_token_id as a list; we pass it as-is to the pipeline
+            if isinstance(self.tokenizer.eos_token_id, list):
+                logger.info(
+                    f"Model has multiple EOS token IDs: {self.tokenizer.eos_token_id}"
+                )
 
             # Load model with appropriate settings
             model_kwargs = {
@@ -137,6 +150,7 @@ class DementiaRAGPipeline:
             )
 
             # Create text generation pipeline
+            # Pass both pad_token_id and eos_token_id explicitly
             self.generator = pipeline(
                 "text-generation",
                 model=self.model,
@@ -145,10 +159,15 @@ class DementiaRAGPipeline:
                 do_sample=True,
                 temperature=self.temperature,
                 max_new_tokens=150,
-                pad_token_id=self.tokenizer.eos_token_id,
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,  # Pass full list or single ID
             )
 
             logger.info(f"Initialized HuggingFace model: {self.model_name}")
+            logger.info(
+                f"Using pad_token_id={self.tokenizer.pad_token_id}, "
+                f"eos_token_id={self.tokenizer.eos_token_id}"
+            )
 
         except Exception as e:
             logger.error(f"Error setting up HuggingFace model: {e}")
@@ -369,6 +388,7 @@ class DementiaRAGPipeline:
                 prompt += "You: "
 
             # Generate response with decoding parameters
+            # Pass pad_token_id and eos_token_id explicitly to avoid warnings
             outputs = self.generator(
                 prompt,
                 max_new_tokens=100,
@@ -376,7 +396,7 @@ class DementiaRAGPipeline:
                 temperature=self.temperature,
                 top_p=self.top_p,
                 repetition_penalty=self.repetition_penalty,
-                pad_token_id=self.tokenizer.eos_token_id,
+                pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
                 return_full_text=False,
             )
