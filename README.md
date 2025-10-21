@@ -1,6 +1,20 @@
 # Dementia Simulation Chatbot
 
+[![Documentation](https://img.shields.io/badge/docs-mkdocs-blue.svg)](https://iloveangpao.github.io/dementia_simulation/)
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 A comprehensive simulation tool for dementia patients to help caregivers practice empathetic communication skills.
+
+## 📚 Documentation
+
+Comprehensive documentation is available at **[iloveangpao.github.io/dementia_simulation](https://iloveangpao.github.io/dementia_simulation/)**
+
+Quick links:
+- **[Quickstart Guide](https://iloveangpao.github.io/dementia_simulation/tutorials/quickstart/)** - Get started in 10 minutes
+- **[API Reference](https://iloveangpao.github.io/dementia_simulation/reference/api/)** - REST API documentation
+- **[Architecture](https://iloveangpao.github.io/dementia_simulation/explanation/architecture/)** - System design
+- **[How-to Guides](https://iloveangpao.github.io/dementia_simulation/how-to/)** - Practical guides
 
 ## 🎯 Purpose
 

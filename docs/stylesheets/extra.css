@@ -1,0 +1,259 @@
+/* Custom styles for Dementia Simulation Documentation */
+
+/* Brand colors */
+:root {
+  --md-primary-fg-color: #4A90E2;
+  --md-primary-fg-color--light: #6BA3E8;
+  --md-primary-fg-color--dark: #3B7AC7;
+  --md-accent-fg-color: #50C878;
+}
+
+/* Improve code block readability */
+.highlight pre {
+  padding: 1em;
+  border-radius: 0.2em;
+}
+
+/* Better table styling */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+}
+
+table th {
+  background-color: var(--md-primary-fg-color);
+  color: white;
+  padding: 0.6em 1em;
+  text-align: left;
+  font-weight: 600;
+}
+
+table td {
+  padding: 0.6em 1em;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+table tr:hover {
+  background-color: #f5f5f5;
+}
+
+/* Dark mode table styling */
+[data-md-color-scheme="slate"] table td {
+  border-bottom-color: #333;
+}
+
+[data-md-color-scheme="slate"] table tr:hover {
+  background-color: #2a2a2a;
+}
+
+/* Admonition custom colors */
+.md-typeset .admonition.tip {
+  border-color: var(--md-accent-fg-color);
+}
+
+.md-typeset .admonition.tip > .admonition-title {
+  background-color: rgba(80, 200, 120, 0.1);
+}
+
+/* Mermaid diagram styling */
+.mermaid {
+  text-align: center;
+  margin: 2em 0;
+}
+
+/* Better spacing for nested lists */
+.md-typeset ul ul,
+.md-typeset ol ul,
+.md-typeset ul ol,
+.md-typeset ol ol {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+/* Improve inline code readability */
+.md-typeset code {
+  padding: 0.15em 0.4em;
+  border-radius: 0.2em;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+[data-md-color-scheme="slate"] .md-typeset code {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Better header anchors */
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4 {
+  margin-top: 2em;
+}
+
+.md-typeset h2:first-child,
+.md-typeset h3:first-child,
+.md-typeset h4:first-child {
+  margin-top: 0;
+}
+
+/* Navigation improvements */
+.md-nav__item--active > .md-nav__link {
+  font-weight: 600;
+}
+
+/* Footer improvements */
+.md-footer-meta {
+  background-color: var(--md-primary-fg-color--dark);
+}
+
+/* Search improvements */
+.md-search__input {
+  border-radius: 0.2em;
+}
+
+/* API documentation improvements */
+.doc-contents {
+  margin-top: 1em;
+}
+
+.doc-heading {
+  margin-top: 1.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+[data-md-color-scheme="slate"] .doc-heading {
+  border-bottom-color: #333;
+}
+
+/* Parameter table styling */
+.field-list {
+  margin: 1em 0;
+}
+
+.field-list dt {
+  font-weight: 600;
+  color: var(--md-primary-fg-color);
+}
+
+/* Badges and tags */
+.badge {
+  display: inline-block;
+  padding: 0.2em 0.6em;
+  font-size: 0.85em;
+  font-weight: 600;
+  line-height: 1;
+  color: white;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+  border-radius: 0.25em;
+  background-color: var(--md-primary-fg-color);
+}
+
+.badge-success {
+  background-color: var(--md-accent-fg-color);
+}
+
+.badge-warning {
+  background-color: #FFB347;
+}
+
+.badge-error {
+  background-color: #E25D5D;
+}
+
+/* Responsive improvements for mobile */
+@media screen and (max-width: 76.1875em) {
+  .md-typeset table {
+    font-size: 0.85em;
+  }
+  
+  .highlight pre {
+    padding: 0.5em;
+  }
+}
+
+/* Print styles */
+@media print {
+  .md-header,
+  .md-sidebar,
+  .md-footer {
+    display: none;
+  }
+  
+  .md-content {
+    max-width: 100%;
+  }
+}
+
+/* Custom classes for documentation */
+.command-line {
+  font-family: 'Roboto Mono', monospace;
+  background-color: #2d2d2d;
+  color: #f8f8f2;
+  padding: 1em;
+  border-radius: 0.3em;
+  overflow-x: auto;
+}
+
+.command-line::before {
+  content: "$ ";
+  color: #50C878;
+  font-weight: bold;
+}
+
+/* Success/error message styling */
+.success-message {
+  padding: 1em;
+  background-color: rgba(80, 200, 120, 0.1);
+  border-left: 4px solid var(--md-accent-fg-color);
+  border-radius: 0.2em;
+  margin: 1em 0;
+}
+
+.error-message {
+  padding: 1em;
+  background-color: rgba(226, 93, 93, 0.1);
+  border-left: 4px solid #E25D5D;
+  border-radius: 0.2em;
+  margin: 1em 0;
+}
+
+/* API endpoint styling */
+.api-endpoint {
+  display: flex;
+  align-items: center;
+  padding: 0.5em 1em;
+  background-color: rgba(0, 0, 0, 0.03);
+  border-radius: 0.2em;
+  margin: 0.5em 0;
+  font-family: 'Roboto Mono', monospace;
+}
+
+.api-endpoint .method {
+  font-weight: 600;
+  margin-right: 1em;
+  padding: 0.2em 0.6em;
+  border-radius: 0.2em;
+  color: white;
+}
+
+.api-endpoint .method.get {
+  background-color: #50C878;
+}
+
+.api-endpoint .method.post {
+  background-color: #4A90E2;
+}
+
+.api-endpoint .method.put {
+  background-color: #FFB347;
+}
+
+.api-endpoint .method.delete {
+  background-color: #E25D5D;
+}
+
+[data-md-color-scheme="slate"] .api-endpoint {
+  background-color: rgba(255, 255, 255, 0.03);
+}
